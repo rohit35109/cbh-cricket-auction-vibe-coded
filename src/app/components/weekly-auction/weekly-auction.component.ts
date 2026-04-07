@@ -288,7 +288,23 @@ import {
               </div>
             </div>
 
+            <!-- Full team rosters for reference -->
+            <div class="swap-full-teams">
+              @for (team of bothTeams(); track team.teamId) {
+                <div class="sft-team">
+                  <div class="sft-team-name">{{ team.teamName }}</div>
+                  <div class="sft-captain">1. {{ team.captainName }} <span class="sft-c">(C)</span></div>
+                  @for (pid of team.pickedIds; track pid; let i = $index) {
+                    <div class="sft-player">{{ i + 2 }}. {{ getPlayer(pid)?.name }}</div>
+                  }
+                </div>
+              }
+            </div>
+
             <div class="swap-footer-actions">
+              <button class="btn-copy-teams" (click)="copyTeams()" [class.copied]="copyDone()">
+                {{ copyDone() ? '✓ Copied!' : '📋 Copy Teams' }}
+              </button>
               <button class="btn-finish-swap" (click)="showFinishConfirm.set(true)">
                 ✅ Finish &amp; Save Match
               </button>
@@ -571,7 +587,25 @@ import {
     }
     .btn-do-swap:hover:not(:disabled) { opacity: 0.85; }
     .btn-do-swap:disabled { opacity: 0.35; cursor: not-allowed; }
-    .swap-footer-actions { text-align: center; }
+    /* Full roster display in swap phase */
+    .swap-full-teams {
+      display: flex; gap: 16px; margin-bottom: 20px; padding: 16px;
+      background: #0f172a; border: 1px solid #334155; border-radius: 10px;
+    }
+    .sft-team { flex: 1; }
+    .sft-team-name { font-size: 0.88rem; font-weight: 700; color: #f8fafc; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #1e293b; }
+    .sft-captain { font-size: 0.8rem; color: #f59e0b; font-weight: 600; padding: 2px 0; }
+    .sft-c { font-size: 0.7rem; color: #f59e0b; opacity: 0.75; }
+    .sft-player { font-size: 0.78rem; color: #94a3b8; padding: 2px 0; }
+
+    .swap-footer-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .btn-copy-teams {
+      background: transparent; border: 1px solid #334155; color: #94a3b8;
+      border-radius: 10px; padding: 10px 20px; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-copy-teams:hover { border-color: #475569; color: #f8fafc; }
+    .btn-copy-teams.copied { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,0.08); }
     .btn-finish-swap {
       background: #22c55e; border: none; color: #0f172a;
       border-radius: 10px; padding: 12px 28px; font-size: 0.95rem; font-weight: 700;
@@ -635,6 +669,7 @@ export class WeeklyAuctionComponent implements OnInit, OnDestroy {
   highlightedPid = signal<string | null>(null);
   showFinishConfirm = signal(false);
   swapMaxMsg = signal('');
+  copyDone = signal(false);
   swapSelection = signal<{ team1Pid: string | null; team2Pid: string | null }>({ team1Pid: null, team2Pid: null });
 
   // Coin flip state
@@ -729,6 +764,29 @@ export class WeeklyAuctionComponent implements OnInit, OnDestroy {
 
   nonCorePicks(team: WeeklyTeamState): string[] {
     return team.pickedIds.filter(pid => !team.availableCoreIds.includes(pid));
+  }
+
+  copyTeams() {
+    const a = this.auction();
+    if (!a) return;
+
+    const formatTeam = (team: WeeklyTeamState): string => {
+      const lines: string[] = [];
+      lines.push(team.teamName);
+      lines.push(`1. ${team.captainName} (C)`);
+      team.pickedIds.forEach((pid, i) => {
+        const name = this.getPlayer(pid)?.name ?? pid;
+        lines.push(`${i + 2}. ${name}`);
+      });
+      return lines.join('\n');
+    };
+
+    const text = formatTeam(a.team1) + '\n\n' + formatTeam(a.team2);
+
+    navigator.clipboard.writeText(text).then(() => {
+      this.copyDone.set(true);
+      setTimeout(() => this.copyDone.set(false), 2500);
+    });
   }
 
   // ── Toss / Coin Flip ──────────────────────────────────────────────
