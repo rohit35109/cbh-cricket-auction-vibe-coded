@@ -170,32 +170,65 @@ type TeamAvailability = {
         @if (step() === 4) {
           <div class="ww-body">
             <h2 class="step-heading">Other player availability</h2>
-            <p class="step-sub">Players not in either selected team. Mark availability and add temp replacements if needed.</p>
-            @for (p of otherPlayers(); track p.id) {
-              <div class="other-row">
-                <div class="other-info">
-                  <span class="other-name">{{ p.name }}</span>
-                  @if (p.username) { <span class="other-sub">&#64;{{ p.username }}</span> }
+            <p class="step-sub">Mark who's available from the pool. Use "Add Temp Player" at the bottom to add anyone not in the system.</p>
+
+            @if (otherPlayers().length > 0) {
+              @for (p of otherPlayers(); track p.id) {
+                <div class="other-row">
+                  <div class="other-info">
+                    <span class="other-name">{{ p.name }}</span>
+                    @if (p.username) { <span class="other-sub">&#64;{{ p.username }}</span> }
+                  </div>
+                  <div class="other-avail-toggle">
+                    <button class="toggle-btn sm" [class.avail]="p.available"
+                      (click)="p.available = true; p.tempName = ''">
+                      Available
+                    </button>
+                    <button class="toggle-btn sm" [class.unavail]="!p.available"
+                      (click)="p.available = false">
+                      Unavailable
+                    </button>
+                  </div>
+                  @if (!p.available) {
+                    <input class="temp-input" [(ngModel)]="p.tempName"
+                      placeholder="Replacement name (optional)" />
+                  }
                 </div>
-                <div class="other-avail-toggle">
-                  <button class="toggle-btn sm" [class.avail]="p.available"
-                    (click)="p.available = true; p.tempName = ''">
-                    Available
-                  </button>
-                  <button class="toggle-btn sm" [class.unavail]="!p.available"
-                    (click)="p.available = false">
-                    Unavailable
-                  </button>
-                </div>
-                @if (!p.available) {
-                  <input class="temp-input" [(ngModel)]="p.tempName"
-                    placeholder="Replacement name (optional)" />
-                }
+              }
+            } @else {
+              <div class="ww-empty-inline">No other players in the pool for this auction.</div>
+            }
+
+            <!-- ── Add extra temp players ── -->
+            <div class="extra-temp-section">
+              <div class="extra-temp-header">
+                <span class="extra-temp-title">➕ Add Temp Players</span>
+                <span class="extra-temp-hint">One-off players for this week only (not saved to your roster)</span>
               </div>
-            }
-            @if (otherPlayers().length === 0) {
-              <div class="ww-empty">No other players found in the player snapshot.</div>
-            }
+
+              @if (extraTempPlayers().length > 0) {
+                <div class="extra-temp-list">
+                  @for (tp of extraTempPlayers(); track $index; let i = $index) {
+                    <div class="extra-temp-item">
+                      <span class="extra-temp-idx">{{ i + 1 }}.</span>
+                      <span class="extra-temp-name">{{ tp }}</span>
+                      <button class="extra-temp-remove" (click)="removeExtraTemp(i)" title="Remove">✕</button>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="extra-temp-add-row">
+                <input class="temp-input extra-temp-input" [(ngModel)]="newTempName"
+                  placeholder="Player name"
+                  (keydown.enter)="addExtraTemp()" />
+                <button class="btn-add-temp" (click)="addExtraTemp()"
+                  [disabled]="!newTempName.trim()">
+                  + Add
+                </button>
+              </div>
+            </div>
+
           </div>
         }
 
@@ -382,6 +415,45 @@ type TeamAvailability = {
     .tc-check { color: #a78bfa; font-size: 0.75rem; font-weight: 700; }
     .tc-no-options { font-size: 0.78rem; color: #64748b; font-style: italic; }
 
+    .ww-empty-inline { color: #64748b; font-size: 0.85rem; padding: 12px 0; font-style: italic; }
+
+    /* Extra temp players */
+    .extra-temp-section {
+      margin-top: 20px; border: 1px solid #334155; border-radius: 10px;
+      overflow: hidden;
+    }
+    .extra-temp-header {
+      padding: 10px 14px; background: #1e293b;
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    }
+    .extra-temp-title { font-size: 0.88rem; font-weight: 700; color: #f8fafc; }
+    .extra-temp-hint { font-size: 0.72rem; color: #64748b; }
+    .extra-temp-list { padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 4px; }
+    .extra-temp-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; background: rgba(167,139,250,0.07);
+      border: 1px solid rgba(167,139,250,0.2); border-radius: 6px;
+    }
+    .extra-temp-idx { font-size: 0.7rem; color: #475569; min-width: 18px; }
+    .extra-temp-name { font-size: 0.85rem; color: #cbd5e1; flex: 1; }
+    .extra-temp-remove {
+      background: none; border: none; color: #475569; cursor: pointer;
+      font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; transition: all 0.2s;
+    }
+    .extra-temp-remove:hover { color: #f87171; background: rgba(239,68,68,0.1); }
+    .extra-temp-add-row {
+      padding: 10px 14px; display: flex; gap: 8px; align-items: center;
+      border-top: 1px solid #1e293b;
+    }
+    .extra-temp-input { flex: 1; width: auto; }
+    .btn-add-temp {
+      padding: 6px 16px; border-radius: 6px; border: 1px solid #a78bfa;
+      background: rgba(167,139,250,0.1); color: #a78bfa;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-add-temp:hover:not(:disabled) { background: rgba(167,139,250,0.2); }
+    .btn-add-temp:disabled { opacity: 0.4; cursor: not-allowed; }
+
     /* Step 4 - other players */
     .other-row {
       display: flex; align-items: center; gap: 12px; padding: 10px 12px;
@@ -491,6 +563,8 @@ export class WeeklyWizardComponent implements OnInit {
       if (op.available) total++;
       else if (op.tempName?.trim()) total++;
     }
+    // Free-form extra temp players always count
+    total += this.extraTempPlayers().length;
     return total;
   });
 
@@ -502,6 +576,10 @@ export class WeeklyWizardComponent implements OnInit {
     available: boolean;
     tempName: string;
   }>>([]);
+
+  // Free-form temp players added for this week (not in DB)
+  extraTempPlayers = signal<string[]>([]);
+  newTempName = '';
 
   async ngOnInit() {
     this.loading.set(true);
@@ -611,6 +689,19 @@ export class WeeklyWizardComponent implements OnInit {
   setTempCaptain(teamAvail: TeamAvailability, memberId: number) {
     teamAvail.tempCaptainId = memberId;
     this.coreAvailability.update(v => [...v]);
+  }
+
+  /** Add a free-form temp player to this week's pool */
+  addExtraTemp() {
+    const name = this.newTempName.trim();
+    if (!name) return;
+    this.extraTempPlayers.update(v => [...v, name]);
+    this.newTempName = '';
+  }
+
+  /** Remove a free-form temp player by index */
+  removeExtraTemp(index: number) {
+    this.extraTempPlayers.update(v => v.filter((_, i) => i !== index));
   }
 
   private buildCoreAvailability() {
@@ -758,6 +849,13 @@ export class WeeklyWizardComponent implements OnInit {
             isTemp: true, originalPlayerId: op.id
           };
         }
+      }
+
+      // Free-form extra temp players (typed in step 4)
+      for (const name of this.extraTempPlayers()) {
+        const tid = `temp_${tempIdx++}`;
+        pool.push(tid);
+        playerIndex[tid] = { id: tid, name, isTemp: true };
       }
 
       // 2 captains (or temp captains) + both teams' picked cores + pool
