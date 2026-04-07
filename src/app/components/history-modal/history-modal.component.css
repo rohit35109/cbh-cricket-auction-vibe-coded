@@ -1,0 +1,114 @@
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .modal-box {
+      background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+      width: 90vw; max-width: 900px; max-height: 88vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-header {
+      padding: 18px 24px; border-bottom: 1px solid #334155;
+      display: flex; align-items: center; justify-content: space-between;
+      background: #0f172a; flex-shrink: 0;
+    }
+    .modal-title { font-size: 1.15rem; font-weight: 700; color: #f8fafc; }
+    .btn-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: #334155; border: none; color: #94a3b8;
+      cursor: pointer; font-size: 0.9rem; transition: all 0.2s;
+    }
+    .btn-close:hover { background: #475569; color: #f8fafc; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 16px; }
+    .loading, .empty {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 12px; padding: 48px; color: #64748b;
+    }
+    .empty-icon { font-size: 3rem; }
+    .empty p { margin: 0; font-size: 0.9rem; }
+
+    /* Main auction record card */
+    .record-card {
+      background: #0f172a; border: 1px solid #334155; border-radius: 10px;
+      margin-bottom: 10px; overflow: hidden; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .record-card:hover { border-color: #475569; }
+    .record-card.expanded { border-color: #22c55e; }
+    .record-header {
+      padding: 14px 16px; display: flex; align-items: center;
+      justify-content: space-between; gap: 12px;
+    }
+    .record-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .record-date { font-size: 0.95rem; font-weight: 600; color: #e2e8f0; }
+    .record-completed { font-size: 0.75rem; color: #64748b; }
+    .record-stats { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+    .stat-pill {
+      padding: 3px 10px; border-radius: 99px; font-size: 0.75rem;
+      background: #334155; color: #94a3b8; white-space: nowrap;
+    }
+    .stat-pill.unsold { background: rgba(239,68,68,0.15); color: #f87171; }
+    .stat-pill.weekly { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .expand-icon { color: #475569; font-size: 0.8rem; flex-shrink: 0; }
+
+    /* Expanded detail */
+    .record-detail { padding: 0 16px 16px; border-top: 1px solid #334155; }
+    .section-label {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #475569; margin: 16px 0 10px;
+    }
+    .weekly-label { color: #a78bfa; }
+    .teams-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .team-summary {
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      padding: 12px;
+    }
+    .team-summary.full { border-color: rgba(34,197,94,0.4); }
+    .ts-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .ts-name { font-size: 0.9rem; font-weight: 700; color: #f8fafc; }
+    .full-badge { font-size: 0.7rem; color: #22c55e; font-weight: 600; }
+    .partial-badge { font-size: 0.7rem; color: #f59e0b; font-weight: 600; }
+    .ts-captain { font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px; }
+    .ts-members { display: flex; flex-direction: column; gap: 2px; }
+    .ts-member { font-size: 0.78rem; color: #cbd5e1; display: flex; gap: 5px; }
+    .ts-idx { color: #475569; font-size: 0.7rem; min-width: 16px; flex-shrink: 0; }
+    .ts-no-picks { font-size: 0.78rem; color: #475569; font-style: italic; }
+    .unsold-section { margin-top: 14px; }
+    .unsold-title { font-size: 0.85rem; color: #94a3b8; margin: 0 0 8px; font-weight: 600; }
+    .unsold-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .unsold-chip {
+      padding: 4px 10px; background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3); border-radius: 99px;
+      color: #f87171; font-size: 0.78rem;
+    }
+
+    /* Weekly matches section */
+    .weekly-section { margin-top: 4px; }
+    .weekly-match-card {
+      background: #0d1526; border: 1px solid rgba(167,139,250,0.3);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+    }
+    .wm-header {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .wm-date { font-size: 0.82rem; color: #64748b; }
+    .wm-toss { font-size: 0.8rem; color: #f59e0b; font-weight: 600; }
+    .wm-swaps { font-size: 0.78rem; color: #a78bfa; }
+    .wm-teams { display: flex; align-items: flex-start; gap: 12px; }
+    .wm-team { flex: 1; background: #1e293b; border-radius: 8px; padding: 10px 12px; }
+    .wm-vs {
+      font-size: 0.85rem; font-weight: 800; color: #475569;
+      padding-top: 10px; flex-shrink: 0;
+    }
+    .wm-team-name { font-size: 0.9rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px; }
+    .wm-captain { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; }
+    .wm-players { display: flex; flex-direction: column; gap: 3px; }
+    .wm-player { font-size: 0.78rem; color: #cbd5e1; display: flex; gap: 5px; }
+    .wm-idx { color: #475569; font-size: 0.7rem; min-width: 16px; flex-shrink: 0; }
+    .wm-no-players { font-size: 0.75rem; color: #475569; font-style: italic; }

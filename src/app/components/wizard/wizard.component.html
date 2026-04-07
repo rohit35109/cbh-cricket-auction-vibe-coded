@@ -1,0 +1,170 @@
+
+    <div class="wizard-overlay">
+      <div class="wizard-box">
+        <!-- Header -->
+        <div class="wizard-header">
+          <span class="wizard-title">🏏 Auction Setup</span>
+          <div class="step-indicators">
+            @for (s of steps; track s.num) {
+              <div class="step-dot" [class.active]="step() >= s.num" [class.current]="step() === s.num">
+                <span>{{ s.num }}</span>
+              </div>
+              @if (!$last) { <div class="step-line" [class.active]="step() > s.num"></div> }
+            }
+          </div>
+        </div>
+
+        <!-- Step 1: Teams -->
+        @if (step() === 1) {
+          <div class="wizard-body">
+            <h2 class="step-title">Configure Teams</h2>
+            <p class="step-sub">Select number of teams and enter their names</p>
+            <div class="form-row">
+              <label>Number of Teams</label>
+              <select [(ngModel)]="teamCount" (ngModelChange)="onTeamCountChange($event)">
+                @for (n of teamCountOptions; track n) {
+                  <option [value]="n">{{ n }}</option>
+                }
+              </select>
+            </div>
+            <div class="teams-grid">
+              @for (t of teamInputs(); track t.tempKey) {
+                <div class="team-input-row">
+                  <span class="team-num">T{{ t.idx + 1 }}</span>
+                  <input
+                    type="text"
+                    [(ngModel)]="t.name"
+                    [placeholder]="'Team ' + (t.idx + 1) + ' name'"
+                    class="inp"
+                    maxlength="40"
+                  />
+                </div>
+              }
+            </div>
+            @if (step1Error()) {
+              <p class="error">{{ step1Error() }}</p>
+            }
+          </div>
+        }
+
+        <!-- Step 2: Core Members -->
+        @if (step() === 2) {
+          <div class="wizard-body">
+            <h2 class="step-title">Core Members Per Team</h2>
+            <p class="step-sub">How many core members per team? This count includes the captain.</p>
+            <div class="core-members-selector">
+              @for (n of coreMemberOptions; track n) {
+                <button class="core-btn" [class.selected]="coreMembersCount() === n" (click)="coreMembersCount.set(n)">
+                  {{ n }}
+                </button>
+              }
+            </div>
+            <div class="core-info">
+              <div class="info-card">
+                <span class="info-label">Teams</span>
+                <span class="info-val">{{ teamCount }}</span>
+              </div>
+              <div class="info-card">
+                <span class="info-label">Core / Team</span>
+                <span class="info-val">{{ coreMembersCount() }}</span>
+              </div>
+              <div class="info-card">
+                <span class="info-label">Picks / Captain</span>
+                <span class="info-val">{{ coreMembersCount() - 1 }}</span>
+              </div>
+              <div class="info-card">
+                <span class="info-label">Total Picks</span>
+                <span class="info-val">{{ (coreMembersCount() - 1) * teamCount }}</span>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Step 3: Players -->
+        @if (step() === 3) {
+          <div class="wizard-body step3-body">
+            <h2 class="step-title">Manage Players</h2>
+            <p class="step-sub">Add players for this auction. Assign captains to teams.</p>
+
+            <div class="add-player-form">
+              <div class="form-grid-5">
+                <input type="text" [(ngModel)]="newPlayer.name" placeholder="Player Name *" class="inp" maxlength="50" />
+                <input type="text" [(ngModel)]="newPlayer.cricherosUsername" placeholder="Cricheroes Username" class="inp" maxlength="60" />
+                <input type="text" [(ngModel)]="newPlayer.cricherosId" placeholder="Cricheroes ID" class="inp" maxlength="30" />
+                <label class="captain-check">
+                  <input type="checkbox" [(ngModel)]="newPlayer.isCaptain" (ngModelChange)="onCaptainToggle()" />
+                  <span>Is Captain</span>
+                </label>
+                @if (newPlayer.isCaptain) {
+                  <select [(ngModel)]="newPlayer.teamKey" class="inp">
+                    <option [ngValue]="undefined">-- Select Team --</option>
+                    @for (t of availableTeamsForNewCaptain(); track t.tempKey) {
+                      <option [ngValue]="t.tempKey">{{ t.name }}</option>
+                    }
+                  </select>
+                } @else {
+                  <div></div>
+                }
+              </div>
+              @if (addPlayerError()) { <p class="error">{{ addPlayerError() }}</p> }
+              <button class="btn-add" (click)="addPlayer()">+ Add Player</button>
+            </div>
+
+            <div class="players-list-container">
+              <div class="players-list-header">
+                <span class="pl-col name">Name</span>
+                <span class="pl-col username">Cricheroes User</span>
+                <span class="pl-col cid">Cricheroes ID</span>
+                <span class="pl-col captain">Cap</span>
+                <span class="pl-col team">Team</span>
+                <span class="pl-col active">Active</span>
+                <span class="pl-col actions">Del</span>
+              </div>
+              <div class="players-scroll">
+                @for (p of players(); track p._tempId) {
+                  <div class="player-row" [class.captain-row]="p.isCaptain">
+                    <span class="pl-col name">{{ p.name }}</span>
+                    <span class="pl-col username">{{ p.cricherosUsername || '—' }}</span>
+                    <span class="pl-col cid">{{ p.cricherosId || '—' }}</span>
+                    <span class="pl-col captain">
+                      @if (p.isCaptain) { <span class="badge captain">C</span> }
+                    </span>
+                    <span class="pl-col team">
+                      @if (p.isCaptain && p._teamKey != null) { {{ getTeamNameByKey(p._teamKey) }} } @else { — }
+                    </span>
+                    <span class="pl-col active">
+                      <label class="toggle">
+                        <input type="checkbox" [checked]="p.isActive" (change)="toggleActive(p)" />
+                        <span class="slider"></span>
+                      </label>
+                    </span>
+                    <span class="pl-col actions">
+                      <button class="btn-icon remove" (click)="removePlayer(p._tempId)">✕</button>
+                    </span>
+                  </div>
+                }
+                @if (players().length === 0) {
+                  <div class="empty-players">No players added yet</div>
+                }
+              </div>
+            </div>
+            @if (step3Error()) { <p class="error">{{ step3Error() }}</p> }
+          </div>
+        }
+
+        <!-- Footer -->
+        <div class="wizard-footer">
+          @if (step() > 1) {
+            <button class="btn-ghost" (click)="prevStep()">← Back</button>
+          }
+          <div class="spacer"></div>
+          @if (step() < 3) {
+            <button class="btn-primary" (click)="nextStep()">Next →</button>
+          } @else {
+            <button class="btn-primary btn-finish" (click)="finish()" [disabled]="finishing()">
+              @if (finishing()) { Saving... } @else { 🚀 Start Auction }
+            </button>
+          }
+        </div>
+      </div>
+    </div>

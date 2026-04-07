@@ -1,0 +1,332 @@
+    <div class="wa-root">
+
+      <!-- Top bar -->
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <span class="logo">⚡ Weekly Auction</span>
+          @if (auction()) {
+            <span class="phase-badge phase-{{ auction()!.phase }}">{{ phaseLabel() }}</span>
+          }
+        </div>
+        <div class="top-bar-right">
+          @if (auction()?.phase === 'picking') {
+            <span class="pool-stat">
+              Pool: {{ auction()!.pool.length }} remaining
+              &nbsp;|&nbsp; Max/team: {{ perTeamCap() }}
+            </span>
+          }
+          @if (auction()?.phase === 'picking' || auction()?.phase === 'swap') {
+            <button class="btn-finish" (click)="showFinishConfirm.set(true)">Mark Complete</button>
+          }
+        </div>
+      </div>
+
+      <!-- TOSS PHASE -->
+      @if (auction()?.phase === 'toss') {
+        <div class="center-screen">
+          <div class="toss-card">
+            <h2 class="toss-title">Coin Toss</h2>
+            <p class="toss-sub">
+              @if (!flipDone()) { Flip to decide who picks first }
+              @else { 🎉 <strong>{{ flipWinnerName() }}</strong> wins the toss! }
+            </p>
+
+            <!-- Teams row with coin in middle -->
+            <div class="toss-row">
+
+              <!-- Team 1 = HEADS -->
+              <div class="toss-team-block" [class.toss-winner]="flipDone() && flipWinnerTeamId() === auction()!.team1.teamId">
+                <div class="toss-side-label">HEADS</div>
+                <div class="toss-team-name">{{ auction()!.team1.teamName }}</div>
+                <div class="toss-captain">👑 {{ auction()!.team1.captainName }}</div>
+              </div>
+
+              <!-- Coin -->
+              <div class="coin-area">
+                <div class="coin-wrap" [class.flipping]="isFlipping()" [class.heads]="flipDone() && flipResult() === 'heads'" [class.tails]="flipDone() && flipResult() === 'tails'">
+                  <div class="coin-face coin-front">🪙</div>
+                  <div class="coin-face coin-back">🪙</div>
+                </div>
+                @if (!isFlipping() && !flipDone()) {
+                  <button class="btn-flip" (click)="flipCoin()">Flip!</button>
+                }
+                @if (isFlipping()) {
+                  <p class="flip-status">Flipping…</p>
+                }
+                @if (flipDone()) {
+                  <button class="btn-confirm-toss" (click)="confirmTossWinner()">
+                    Start Picking →
+                  </button>
+                }
+              </div>
+
+              <!-- Team 2 = TAILS -->
+              <div class="toss-team-block" [class.toss-winner]="flipDone() && flipWinnerTeamId() === auction()!.team2.teamId">
+                <div class="toss-side-label">TAILS</div>
+                <div class="toss-team-name">{{ auction()!.team2.teamName }}</div>
+                <div class="toss-captain">👑 {{ auction()!.team2.captainName }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- PICKING PHASE -->
+      @if (auction()?.phase === 'picking') {
+        <div class="pick-layout">
+
+          <!-- LEFT: Pool -->
+          <div class="panel panel-left">
+            <div class="panel-header">
+              <span>Available Players</span>
+              <span class="count-badge">{{ auction()!.pool.length }}</span>
+            </div>
+            <div class="panel-scroll">
+              @for (pid of auction()!.pool; track pid) {
+                <div class="player-chip" [class.core-chip]="isCorePlayer(pid)">
+                  <div class="pc-row">
+                    <span class="pc-name">{{ getPlayer(pid)?.name }}</span>
+                    @if (isCorePlayer(pid)) { <span class="core-tag">Core</span> }
+                  </div>
+                  @if (getPlayer(pid)?.cricherosUsername) {
+                    <span class="pc-sub">&#64;{{ getPlayer(pid)!.cricherosUsername }}</span>
+                  }
+                  @if (getPlayer(pid)?.isTemp) {
+                    <span class="temp-tag">Temp</span>
+                  }
+                </div>
+              }
+              @if (auction()!.pool.length === 0) {
+                <div class="empty-panel">All players picked!</div>
+              }
+            </div>
+          </div>
+
+          <!-- MIDDLE: Current pick turn -->
+          <div class="panel panel-mid">
+            @if (currentPickTeam() && !isTeamFull(currentPickTeam()!)) {
+              <div class="pick-turn-header">
+                <div class="pick-turn-info">
+                  <span class="pick-turn-label">Captain's Choice</span>
+                  <span class="pick-captain-name">{{ currentPickTeam()!.captainName }}</span>
+                  <span class="pick-team-name">{{ currentPickTeam()!.teamName }}</span>
+                </div>
+                <div class="pick-slots">
+                  <span class="slots-label">{{ teamSizeLabel(currentPickTeam()!) }}</span>
+                  <span class="slots-cap-label">players</span>
+                </div>
+              </div>
+
+              @if (auction()!.pool.length > 0) {
+                <div class="pick-list-container">
+                  <p class="pick-list-hint">Select a player to pick:</p>
+                  <div class="pick-list">
+                    @for (pid of auction()!.pool; track pid; let i = $index) {
+                      <div class="pick-list-item"
+                        [class.highlighted]="highlightedPid() === pid"
+                        (mouseenter)="highlightedPid.set(pid)"
+                        (mouseleave)="highlightedPid.set(null)"
+                        (click)="pickPlayer(pid)">
+                        <div class="pli-left">
+                          <div class="pli-name-row">
+                            <span class="pli-idx">{{ i + 1 }}.</span>
+                            <span class="pli-name">{{ getPlayer(pid)?.name }}</span>
+                          </div>
+                          <div class="pli-tags">
+                            @if (isCorePlayer(pid)) { <span class="core-tag sm">Core</span> }
+                            @if (getPlayer(pid)?.isTemp) { <span class="temp-tag sm">Temp</span> }
+                            @if (getPlayer(pid)?.cricherosUsername) {
+                              <span class="pli-user">&#64;{{ getPlayer(pid)!.cricherosUsername }}</span>
+                            }
+                          </div>
+                        </div>
+                        <button class="btn-pick-player" (click)="pickPlayer(pid); $event.stopPropagation()">
+                          Pick ✓
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <div class="no-pool-state">
+                  <span class="np-icon">🏏</span>
+                  <p>All available players have been picked.</p>
+                  <button class="btn-proceed-swap" (click)="proceedToSwap()">Proceed to Swap Phase →</button>
+                </div>
+              }
+            } @else {
+              <!-- Both teams full OR pool empty with no active picker -->
+              <div class="no-pool-state">
+                <span class="np-icon">✅</span>
+                @if (isTeamFull(auction()!.team1) && isTeamFull(auction()!.team2)) {
+                  <p>Both teams are at maximum size!</p>
+                } @else {
+                  <p>All available players have been picked.</p>
+                }
+                <button class="btn-proceed-swap" (click)="proceedToSwap()">Proceed to Swap Phase →</button>
+              </div>
+            }
+          </div>
+
+          <!-- RIGHT: Teams -->
+          <div class="panel panel-right">
+            <div class="panel-header">
+              <span>Teams</span>
+              <span class="cap-hint">cap: {{ perTeamCap() }}</span>
+            </div>
+            <div class="panel-scroll">
+              @for (team of bothTeams(); track team.teamId) {
+                <div class="team-card"
+                  [class.current-team]="team.teamId === auction()!.currentPickTeamId"
+                  [class.team-full]="isTeamFull(team)">
+                  <div class="tc-header">
+                    <div class="tc-info">
+                      <span class="tc-name">{{ team.teamName }}</span>
+                      <span class="tc-captain">👑 {{ team.captainName }}</span>
+                    </div>
+                    <div class="tc-right">
+                      <span class="tc-size" [class.tc-size-full]="isTeamFull(team)">
+                        {{ teamSizeLabel(team) }}
+                      </span>
+                      @if (isTeamFull(team)) {
+                        <span class="full-chip">Full ✓</span>
+                      } @else if (team.teamId === auction()!.currentPickTeamId) {
+                        <span class="picking-now">Picking</span>
+                      }
+                    </div>
+                  </div>
+                  @if (team.pickedIds.length > 0) {
+                    <div class="tc-members">
+                      @for (pid of team.pickedIds; track pid; let i = $index) {
+                        <div class="tc-member">
+                          <span class="tc-idx">{{ i + 1 }}.</span>
+                          {{ getPlayer(pid)?.name }}
+                          @if (isCorePlayerForTeam(pid, team.teamId)) { <span class="core-dot">●</span> }
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="tc-empty">No picks yet</div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- SWAP PHASE -->
+      @if (auction()?.phase === 'swap') {
+        <div class="center-screen">
+          <div class="swap-card">
+            <div class="swap-header">
+              <h2 class="swap-title">🔄 Swap Phase</h2>
+              <p class="swap-sub">Up to 2 total swaps between teams. Non-core players only.</p>
+              <div class="swap-count-row">
+                <span class="swap-used">Swaps used: {{ auction()!.swapCount }} / 2</span>
+                @if (auction()!.swapCount >= 2) {
+                  <span class="swap-maxed">Max swaps reached</span>
+                }
+              </div>
+            </div>
+
+            <div class="swap-teams-row">
+              <!-- Team 1 non-core picks -->
+              <div class="swap-team-panel">
+                <div class="swap-team-name">{{ auction()!.team1.teamName }}</div>
+                @for (pid of nonCorePicks(auction()!.team1); track pid) {
+                  <div class="swap-player-item"
+                    [class.selected-swap]="swapSelection().team1Pid === pid"
+                    (click)="selectSwapPlayer(1, pid)">
+                    <span>{{ getPlayer(pid)?.name }}</span>
+                    @if (getPlayer(pid)?.isTemp) { <span class="temp-tag sm">Temp</span> }
+                  </div>
+                }
+                @if (nonCorePicks(auction()!.team1).length === 0) {
+                  <div class="swap-empty">No non-core players to swap</div>
+                }
+              </div>
+
+              <div class="swap-arrow-col">
+                <div class="swap-arrow">⇄</div>
+                @if (swapSelection().team1Pid && swapSelection().team2Pid) {
+                  <button class="btn-do-swap" (click)="executeSwap()" [disabled]="auction()!.swapCount >= 2">
+                    Swap
+                  </button>
+                }
+              </div>
+
+              <!-- Team 2 non-core picks -->
+              <div class="swap-team-panel">
+                <div class="swap-team-name">{{ auction()!.team2.teamName }}</div>
+                @for (pid of nonCorePicks(auction()!.team2); track pid) {
+                  <div class="swap-player-item"
+                    [class.selected-swap]="swapSelection().team2Pid === pid"
+                    (click)="selectSwapPlayer(2, pid)">
+                    <span>{{ getPlayer(pid)?.name }}</span>
+                    @if (getPlayer(pid)?.isTemp) { <span class="temp-tag sm">Temp</span> }
+                  </div>
+                }
+                @if (nonCorePicks(auction()!.team2).length === 0) {
+                  <div class="swap-empty">No non-core players to swap</div>
+                }
+              </div>
+            </div>
+
+            <!-- Full team rosters for reference -->
+            <div class="swap-full-teams">
+              @for (team of bothTeams(); track team.teamId) {
+                <div class="sft-team">
+                  <div class="sft-team-name">{{ team.teamName }}</div>
+                  <div class="sft-captain">1. {{ team.captainName }} <span class="sft-c">(C)</span></div>
+                  @for (pid of team.pickedIds; track pid; let i = $index) {
+                    <div class="sft-player">{{ i + 2 }}. {{ getPlayer(pid)?.name }}</div>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="swap-footer-actions">
+              <button class="btn-copy-teams" (click)="copyTeams()" [class.copied]="copyDone()">
+                {{ copyDone() ? '✓ Copied!' : '📋 Copy Teams' }}
+              </button>
+              <button class="btn-finish-swap" (click)="showFinishConfirm.set(true)">
+                ✅ Finish &amp; Save Match
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- COMPLETED PHASE -->
+      @if (auction()?.phase === 'completed') {
+        <div class="center-screen">
+          <div class="completed-card">
+            <div class="comp-trophy">🏆</div>
+            <h2 class="comp-title">Match Saved!</h2>
+            <p class="comp-sub">Weekly auction completed successfully.</p>
+            <button class="btn-back-home" (click)="auctionCompleted.emit()">← Back to Home</button>
+          </div>
+        </div>
+      }
+
+      <!-- Finish confirm modal -->
+      @if (showFinishConfirm()) {
+        <div class="modal-overlay">
+          <div class="confirm-box">
+            <h3>Complete Weekly Auction?</h3>
+            <p>This will save the match result and return to the home screen.</p>
+            <div class="modal-actions">
+              <button class="btn-ghost" (click)="showFinishConfirm.set(false)">Cancel</button>
+              <button class="btn-confirm" (click)="finishAndSave()">Yes, Save Match</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Swap confirm modal (when max reached but trying again) -->
+      @if (swapMaxMsg()) {
+        <div class="toast-msg">{{ swapMaxMsg() }}</div>
+      }
+
+    </div>

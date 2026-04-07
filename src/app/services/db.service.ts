@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Team, Player, ActiveAuction, AuctionHistoryRecord, ActiveWeeklyAuction, WeeklyMatchRecord } from '../models/models';
+import { SEED_TEAMS, SEED_PLAYERS } from '../data/seed-data';
 
 @Injectable({ providedIn: 'root' })
 export class DbService {
@@ -33,13 +34,39 @@ export class DbService {
           db.createObjectStore('weeklyMatchHistory', { keyPath: 'id', autoIncrement: true });
         }
       };
-      request.onsuccess = (event) => {
+      request.onsuccess = async (event) => {
         this.db = (event.target as IDBOpenDBRequest).result;
+        await this.seedIfEmpty();
         resolve();
       };
       request.onerror = () => reject(request.error);
     });
     return this.initPromise;
+  }
+
+  private async seedIfEmpty(): Promise<void> {
+    const teams = await this.getTeams();
+    if (teams.length > 0) return; // already has data, skip seeding
+
+    // Insert teams and build name → id map
+    const teamNameToId = new Map<string, number>();
+    for (const st of SEED_TEAMS) {
+      const id = (await this.saveTeam({ name: st.name, isActive: st.isActive })) as number;
+      teamNameToId.set(st.name, id);
+    }
+
+    // Insert players
+    for (const sp of SEED_PLAYERS) {
+      const teamId = sp.teamName ? teamNameToId.get(sp.teamName) : undefined;
+      await this.savePlayer({
+        name: sp.name,
+        cricherosUsername: sp.cricherosUsername || undefined,
+        cricherosId: sp.cricherosId || undefined,
+        isCaptain: sp.isCaptain,
+        teamId,
+        isActive: sp.isActive
+      });
+    }
   }
 
   private tx<T>(storeName: string, mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {

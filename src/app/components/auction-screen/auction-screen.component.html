@@ -1,0 +1,249 @@
+    <div class="auction-root">
+
+      <!-- Top bar -->
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <span class="logo">🏏 Cricket Auction</span>
+          @if (auction()) {
+            <span class="phase-badge" [class]="'phase-' + auction()!.phase">{{ phaseLabel() }}</span>
+          }
+        </div>
+        <div class="top-bar-right">
+          <span class="stats">
+            Pool: {{ auction()?.availablePlayers?.length || 0 }}
+            &nbsp;|&nbsp; Unsold: {{ auction()?.unsoldPlayers?.length || 0 }}
+            &nbsp;|&nbsp; Done: {{ completedTeamIds().length }}/{{ auction()?.teams?.length || 0 }}
+          </span>
+          @if (auction()?.phase === 'active' || auction()?.phase === 'unsold_phase') {
+            <button class="btn-complete" (click)="showConfirmModal.set(true)">Mark Complete</button>
+          }
+        </div>
+      </div>
+
+      <!-- 3-panel layout -->
+      <div class="main-layout">
+
+        <!-- LEFT: player pool -->
+        <div class="panel panel-left">
+          <div class="panel-header">
+            <span>Player Pool</span>
+            <span class="count-badge">{{ auction()?.availablePlayers?.length || 0 }}</span>
+          </div>
+          <div class="panel-scroll">
+            @for (pid of auction()?.availablePlayers || []; track pid) {
+              <div class="player-card" [class.on-stage]="pid === auction()?.currentPlayerId && auction()?.phase === 'active'">
+                <div class="pc-row">
+                  <span class="player-name">{{ getPlayerName(pid) }}</span>
+                  @if (pid === auction()?.currentPlayerId && auction()?.phase === 'active') {
+                    <span class="stage-dot">▶</span>
+                  }
+                </div>
+                @if (getPlayerUsername(pid)) {
+                  <span class="player-sub">&#64;{{ getPlayerUsername(pid) }}</span>
+                }
+              </div>
+            }
+            @if ((auction()?.availablePlayers?.length || 0) === 0) {
+              <div class="empty-panel">Main pool exhausted</div>
+            }
+          </div>
+
+          <!-- Unsold sub-panel -->
+          @if ((auction()?.unsoldPlayers?.length || 0) > 0) {
+            <div class="panel-header unsold-header">
+              <span>Unsold Pool</span>
+              <span class="count-badge unsold-badge">{{ auction()!.unsoldPlayers.length }}</span>
+            </div>
+            <div class="panel-scroll unsold-scroll">
+              @for (pid of auction()?.unsoldPlayers || []; track pid) {
+                <div class="player-card unsold-card" [class.on-stage]="pid === auction()?.currentPlayerId && auction()?.phase === 'unsold_phase'">
+                  <div class="pc-row">
+                    <span class="player-name">{{ getPlayerName(pid) }}</span>
+                    @if (pid === auction()?.currentPlayerId && auction()?.phase === 'unsold_phase') {
+                      <span class="stage-dot purple">▶</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- MIDDLE: current turn -->
+        <div class="panel panel-mid">
+
+          @if (auction()?.phase === 'shuffling') {
+            <div class="shuffle-screen">
+              <div class="shuffle-spinner">🏏</div>
+              <p class="shuffle-title">Shuffling Pick Order</p>
+              <div class="shuffle-teams">
+                @for (name of shuffleDisplay(); track $index) {
+                  <div class="shuffle-name" [style.opacity]="$index === 0 ? 1 : 0.55 - $index * 0.1">{{ name }}</div>
+                }
+              </div>
+              <p class="shuffle-sub">Determining sequence...</p>
+            </div>
+          }
+
+          @if (auction()?.phase === 'active' || auction()?.phase === 'unsold_phase') {
+            <!-- Captain header -->
+            <div class="turn-header">
+              @if (currentTeam()) {
+                <div class="turn-info">
+                  @if (auction()?.phase === 'unsold_phase') {
+                    <span class="phase-tag unsold-tag">⚡ Unsold Phase</span>
+                  }
+                  <span class="turn-label">Current Pick</span>
+                  <span class="captain-name">{{ currentTeam()!.captainName }}</span>
+                  <span class="team-name-sub">{{ currentTeam()!.teamName }}</span>
+                </div>
+                <div class="pick-progress">
+                  <span class="picks-label">Picks</span>
+                  <div class="pick-dots">
+                    @for (filled of pickDots(); track $index) {
+                      <div class="pick-dot" [class.filled]="filled"></div>
+                    }
+                  </div>
+                  <span class="picks-count">{{ currentTeam()!.memberIds.length }}/{{ auction()!.coreMembersCount - 1 }}</span>
+                </div>
+              }
+            </div>
+
+            <!-- Player spotlight -->
+            @if (currentPlayer()) {
+              <div class="player-spotlight">
+                <div class="spotlight-info">
+                  <div class="name-row">
+                    <h2 class="spotlight-name">{{ currentPlayer()!.name }}</h2>
+                    @if (cricherosProfileUrl()) {
+                      <a [href]="cricherosProfileUrl()" target="_blank" rel="noopener noreferrer" class="profile-link">
+                        🔗 Open Profile
+                      </a>
+                    }
+                  </div>
+                  @if (currentPlayer()!.cricherosUsername) {
+                    <p class="spotlight-meta">&#64;{{ currentPlayer()!.cricherosUsername }}</p>
+                  }
+                  @if (currentPlayer()!.cricherosId) {
+                    <p class="spotlight-meta id-meta">ID: {{ currentPlayer()!.cricherosId }}</p>
+                  }
+                </div>
+
+                @if (currentPlayer()!.cricherosId && currentPlayer()!.cricherosUsername) {
+                  <div class="iframe-wrap">
+                    <iframe
+                      [src]="safeIframeUrl()"
+                      frameborder="0"
+                      class="stats-iframe"
+                      loading="lazy"
+                      sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                    ></iframe>
+                    <div class="iframe-note">
+                      <span>Profile stats may not load if restricted by Cricheroes.</span>
+                      <a [href]="cricherosProfileUrl()" target="_blank" rel="noopener noreferrer" class="iframe-link">
+                        Open in browser ↗
+                      </a>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="no-profile">
+                    <span>📊</span>
+                    <p>No Cricheroes profile linked</p>
+                  </div>
+                }
+
+                <div class="action-buttons">
+                  <button class="btn-unsold" (click)="markUnsold()" [disabled]="actionInProgress()">
+                    ❌ &nbsp;Unsold
+                  </button>
+                  <button class="btn-pick" (click)="pickPlayer()" [disabled]="actionInProgress()">
+                    ✅ &nbsp;Pick
+                  </button>
+                </div>
+              </div>
+
+            } @else {
+              <!-- No player in pool at all -->
+              <div class="no-player-state">
+                <span class="no-player-icon">🏏</span>
+                <p class="no-player-msg">No players remaining in any pool.</p>
+                <p class="no-player-sub">Click <strong>Mark Complete</strong> to end the auction.</p>
+              </div>
+            }
+          }
+
+          @if (auction()?.phase === 'completed') {
+            <div class="completed-screen">
+              <div class="trophy">🏆</div>
+              <h2>Auction Complete!</h2>
+              <p>All picks have been finalised.</p>
+              <div class="comp-stats">
+                <div class="comp-stat">
+                  <span class="comp-val">{{ completedTeamIds().length }}</span>
+                  <span class="comp-label">Teams Filled</span>
+                </div>
+                <div class="comp-stat">
+                  <span class="comp-val">{{ auction()?.unsoldPlayers?.length || 0 }}</span>
+                  <span class="comp-label">Players Unsold</span>
+                </div>
+              </div>
+              <button class="btn-save" (click)="saveToHistory()">💾 Save to History &amp; Exit</button>
+            </div>
+          }
+        </div>
+
+        <!-- RIGHT: teams -->
+        <div class="panel panel-right">
+          <div class="panel-header">
+            <span>Pick Order &amp; Teams</span>
+            @if (auction()?.phase === 'shuffling') {
+              <span class="shuffling-tag">Shuffling...</span>
+            }
+          </div>
+          <div class="panel-scroll">
+            @for (tid of teamOrder(); track tid; let i = $index) {
+              @if (getTeam(tid); as team) {
+                <div class="team-card"
+                  [class.current-team]="tid === currentTeamId()"
+                  [class.done-team]="completedTeamIds().includes(tid)">
+                  <div class="tc-header">
+                    <div class="tc-seq">
+                      @if (completedTeamIds().includes(tid)) { <span class="done-check">✓</span> }
+                      @else { <span>{{ i + 1 }}</span> }
+                    </div>
+                    <div class="tc-info">
+                      <span class="tc-name">{{ team.teamName }}</span>
+                      <span class="tc-captain">👑 {{ team.captainName }}</span>
+                    </div>
+                    <div class="tc-slots">{{ team.memberIds.length + 1 }}/{{ auction()?.coreMembersCount }}</div>
+                  </div>
+                  @if (team.memberIds.length > 0) {
+                    <div class="tc-members">
+                      @for (mid of team.memberIds; track mid; let i = $index) {
+                        <div class="tc-member"><span class="tc-idx">{{ i + 1 }}.</span> {{ getPlayerName(mid) }}</div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            }
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Manual complete modal -->
+      @if (showConfirmModal()) {
+        <div class="modal-overlay">
+          <div class="confirm-box">
+            <h3>Mark Auction as Complete?</h3>
+            <p>This will save the result to history and end the session. Any unsold players will remain unsold.</p>
+            <div class="modal-actions">
+              <button class="btn-ghost" (click)="showConfirmModal.set(false)">Cancel</button>
+              <button class="btn-danger" (click)="saveToHistory()">Yes, Complete</button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  `,

@@ -1,0 +1,133 @@
+    <div class="overlay" (click)="onOverlayClick($event)">
+      <div class="modal-box">
+        <div class="modal-header">
+          <span class="modal-title">📜 Auction History</span>
+          <button class="btn-close" (click)="close.emit()">✕</button>
+        </div>
+
+        <div class="modal-body">
+          @if (loading()) {
+            <div class="loading">Loading history...</div>
+          } @else if (records().length === 0) {
+            <div class="empty">
+              <span class="empty-icon">🏏</span>
+              <p>No completed auctions yet.</p>
+            </div>
+          } @else {
+            @for (rec of records(); track rec.id) {
+              <div class="record-card" [class.expanded]="expandedId() === rec.id"
+                (click)="toggleExpand(rec.id!)">
+
+                <div class="record-header">
+                  <div class="record-meta">
+                    <span class="record-date">{{ formatDate(rec.createdAt) }}</span>
+                    <span class="record-completed">Completed: {{ formatDate(rec.completedAt) }}</span>
+                  </div>
+                  <div class="record-stats">
+                    <span class="stat-pill">{{ rec.teamSummaries.length }} Teams</span>
+                    <span class="stat-pill">{{ rec.coreMembersCount }} Core Members</span>
+                    <span class="stat-pill">{{ rec.totalPlayers }} Players</span>
+                    @if (rec.unsoldPlayerNames.length > 0) {
+                      <span class="stat-pill unsold">{{ rec.unsoldPlayerNames.length }} Unsold</span>
+                    }
+                    @if (weeklyCountFor(rec.id!) > 0) {
+                      <span class="stat-pill weekly">⚡ {{ weeklyCountFor(rec.id!) }} Weekly Match{{ weeklyCountFor(rec.id!) > 1 ? 'es' : '' }}</span>
+                    }
+                  </div>
+                  <span class="expand-icon">{{ expandedId() === rec.id ? '▲' : '▼' }}</span>
+                </div>
+
+                @if (expandedId() === rec.id) {
+                  <div class="record-detail" (click)="$event.stopPropagation()">
+
+                    <!-- Main auction teams -->
+                    <div class="section-label">Main Auction Teams</div>
+                    <div class="teams-grid">
+                      @for (ts of rec.teamSummaries; track ts.teamId) {
+                        <div class="team-summary" [class.full]="ts.isFull">
+                          <div class="ts-header">
+                            <span class="ts-name">{{ ts.teamName }}</span>
+                            @if (ts.isFull) {
+                              <span class="full-badge">✓ Full</span>
+                            } @else {
+                              <span class="partial-badge">Partial</span>
+                            }
+                          </div>
+                          <div class="ts-captain">👑 {{ ts.captainName }}</div>
+                          @if (ts.memberNames.length > 0) {
+                            <div class="ts-members">
+                              @for (m of ts.memberNames; track $index; let i = $index) {
+                                <div class="ts-member"><span class="ts-idx">{{ i + 1 }}.</span> {{ m }}</div>
+                              }
+                            </div>
+                          } @else {
+                            <div class="ts-no-picks">No picks made</div>
+                          }
+                        </div>
+                      }
+                    </div>
+
+                    @if (rec.unsoldPlayerNames.length > 0) {
+                      <div class="unsold-section">
+                        <h4 class="unsold-title">Unsold Players</h4>
+                        <div class="unsold-list">
+                          @for (name of rec.unsoldPlayerNames; track $index) {
+                            <span class="unsold-chip">{{ name }}</span>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    <!-- Weekly matches for this auction -->
+                    @if (weeklyCountFor(rec.id!) > 0) {
+                      <div class="weekly-section">
+                        <div class="section-label weekly-label">⚡ Weekly Matches</div>
+                        @for (wm of weeklyMatchesFor(rec.id!); track wm.id) {
+                          <div class="weekly-match-card">
+                            <div class="wm-header">
+                              <span class="wm-date">{{ formatDate(wm.completedAt) }}</span>
+                              <span class="wm-toss">🪙 Toss: {{ wm.tossWinnerName }}</span>
+                              @if (wm.swapsMade > 0) {
+                                <span class="wm-swaps">🔄 {{ wm.swapsMade }} swap{{ wm.swapsMade > 1 ? 's' : '' }}</span>
+                              }
+                            </div>
+                            <div class="wm-teams">
+                              <div class="wm-team">
+                                <div class="wm-team-name">{{ wm.team1.teamName }}</div>
+                                <div class="wm-captain">👑 {{ wm.team1.captainName }}</div>
+                                <div class="wm-players">
+                                  @for (p of wm.team1.playerNames; track $index; let i = $index) {
+                                    <span class="wm-player"><span class="wm-idx">{{ i + 1 }}.</span> {{ p }}</span>
+                                  }
+                                  @if (wm.team1.playerNames.length === 0) {
+                                    <span class="wm-no-players">No picks</span>
+                                  }
+                                </div>
+                              </div>
+                              <div class="wm-vs">VS</div>
+                              <div class="wm-team">
+                                <div class="wm-team-name">{{ wm.team2.teamName }}</div>
+                                <div class="wm-captain">👑 {{ wm.team2.captainName }}</div>
+                                <div class="wm-players">
+                                  @for (p of wm.team2.playerNames; track $index; let i = $index) {
+                                    <span class="wm-player"><span class="wm-idx">{{ i + 1 }}.</span> {{ p }}</span>
+                                  }
+                                  @if (wm.team2.playerNames.length === 0) {
+                                    <span class="wm-no-players">No picks</span>
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+
+                  </div>
+                }
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>

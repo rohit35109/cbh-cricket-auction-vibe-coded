@@ -1,1 +1,126 @@
-<router-outlet />
+
+    <div class="app-shell">
+
+      <!-- ══ LANDING ══ -->
+      @if (view() === 'landing') {
+        <div class="landing">
+          <div class="landing-bg">
+            <div class="landing-card">
+              <div class="landing-logo">🏏</div>
+              <h1 class="landing-title">Cricket Auction</h1>
+              <p class="landing-sub">
+                Internal team auction platform — pick your squad, own your game.
+              </p>
+
+              <div class="landing-actions">
+
+                <!-- Main auction controls -->
+                <div class="action-group">
+                  <span class="group-label">Main Auction</span>
+                  @if (hasActiveAuction()) {
+                    <button class="btn-resume" (click)="resumeAuction()">▶ Resume Auction</button>
+                    <button class="btn-start-new" (click)="startNew()">+ Start New Auction</button>
+                  } @else {
+                    <button class="btn-start" (click)="showWizard.set(true)">+ Start New Auction</button>
+                  }
+                </div>
+
+                <!-- Weekly auction controls -->
+                <div class="action-group">
+                  <span class="group-label">Weekly Match</span>
+                  @if (hasActiveWeeklyAuction()) {
+                    <button class="btn-weekly-resume" (click)="resumeWeeklyAuction()">▶ Resume Weekly Auction</button>
+                    <button class="btn-weekly" (click)="showWeeklyWizard.set(true)">⚡ New Weekly Auction</button>
+                  } @else {
+                    <button class="btn-weekly" (click)="showWeeklyWizard.set(true)">⚡ Weekly Auction</button>
+                  }
+                </div>
+
+                <!-- Management -->
+                <div class="action-group">
+                  <span class="group-label">Manage</span>
+                  <div class="manage-row">
+                    <button class="btn-manage" (click)="showManage.set(true)">
+                      👥 Teams &amp; Players
+                    </button>
+                    <button class="btn-history" (click)="showHistory.set(true)">
+                      📜 History
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              @if (hasActiveAuction()) {
+                <div class="resume-hint">
+                  <span class="hint-dot"></span>
+                  A main auction is in progress — resume it or start fresh.
+                </div>
+              }
+              @if (hasActiveWeeklyAuction()) {
+                <div class="resume-hint weekly-hint">
+                  <span class="hint-dot weekly-dot"></span>
+                  A weekly auction is in progress.
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ══ MAIN AUCTION SCREEN ══ -->
+      @if (view() === 'auction') {
+        <app-auction-screen
+          #auctionScreen
+          (auctionCompleted)="onAuctionCompleted()"
+        />
+      }
+
+      <!-- ══ WEEKLY AUCTION SCREEN ══ -->
+      @if (view() === 'weekly-auction') {
+        <app-weekly-auction
+          #weeklyAuctionScreen
+          (auctionCompleted)="onWeeklyAuctionCompleted()"
+        />
+      }
+
+      <!-- ══ MAIN AUCTION WIZARD ══ -->
+      @if (showWizard()) {
+        <app-wizard (auctionStarted)="onAuctionStarted($event)" />
+      }
+
+      <!-- ══ WEEKLY WIZARD ══ -->
+      @if (showWeeklyWizard()) {
+        <app-weekly-wizard
+          (cancel)="showWeeklyWizard.set(false)"
+          (started)="onWeeklyAuctionStarted($event)"
+        />
+      }
+
+      <!-- ══ HISTORY MODAL ══ -->
+      @if (showHistory()) {
+        <app-history-modal (close)="showHistory.set(false)" />
+      }
+
+      <!-- ══ MANAGE MODAL ══ -->
+      @if (showManage()) {
+        <app-manage (close)="showManage.set(false)" />
+      }
+
+      <!-- ══ CONFIRM: Start new main auction ══ -->
+      @if (showNewConfirm()) {
+        <div class="modal-overlay">
+          <div class="confirm-box">
+            <h3>Start a New Auction?</h3>
+            <p>
+              There is an active auction in progress. Starting a new one will
+              <strong>discard the current session</strong>. This cannot be undone.
+            </p>
+            <div class="confirm-actions">
+              <button class="btn-ghost" (click)="showNewConfirm.set(false)">Cancel</button>
+              <button class="btn-danger" (click)="confirmStartNew()">Yes, Start New</button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>

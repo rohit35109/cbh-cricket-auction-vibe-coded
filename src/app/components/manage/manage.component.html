@@ -1,0 +1,263 @@
+    <div class="overlay" (click)="onOverlayClick($event)">
+      <div class="modal-box">
+
+        <!-- Header -->
+        <div class="modal-header">
+          <div class="header-left">
+            <span class="modal-title">⚙️ Manage</span>
+            <div class="tabs">
+              <button class="tab-btn" [class.active]="tab() === 'players'" (click)="tab.set('players')">
+                🏏 Players
+              </button>
+              <button class="tab-btn" [class.active]="tab() === 'teams'" (click)="tab.set('teams')">
+                👥 Teams
+              </button>
+            </div>
+          </div>
+          <button class="btn-close" (click)="close.emit()">✕</button>
+        </div>
+
+        <!-- ══ PLAYERS TAB ══ -->
+        @if (tab() === 'players') {
+          <div class="modal-body">
+
+            <!-- Add Player Form -->
+            <div class="add-section">
+              <button class="btn-add-toggle" (click)="showAddPlayer.set(!showAddPlayer())">
+                {{ showAddPlayer() ? '✕ Cancel' : '+ Add Player' }}
+              </button>
+              @if (showAddPlayer()) {
+                <div class="add-form">
+                  <div class="form-grid">
+                    <div class="form-field">
+                      <label>Name *</label>
+                      <input [(ngModel)]="newPlayer.name" placeholder="Full name" />
+                    </div>
+                    <div class="form-field">
+                      <label>Team</label>
+                      <select [(ngModel)]="newPlayer.teamId">
+                        <option [ngValue]="null">— Unassigned —</option>
+                        @for (t of activeTeams(); track t.id) {
+                          <option [ngValue]="t.id">{{ t.name }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label>Cricheroes Username</label>
+                      <input [(ngModel)]="newPlayer.cricherosUsername" placeholder="username" />
+                    </div>
+                    <div class="form-field">
+                      <label>Cricheroes ID</label>
+                      <input [(ngModel)]="newPlayer.cricherosId" placeholder="numeric ID" />
+                    </div>
+                  </div>
+                  <div class="form-check">
+                    <label class="check-label">
+                      <input type="checkbox" [(ngModel)]="newPlayer.isCaptain" />
+                      Set as team captain
+                    </label>
+                  </div>
+                  @if (addPlayerError()) {
+                    <p class="form-error">{{ addPlayerError() }}</p>
+                  }
+                  <div class="form-actions">
+                    <button class="btn-save-add" (click)="addPlayer()">Save Player</button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Active Players List -->
+            <div class="section-label">Active Players ({{ activePlayers().length }})</div>
+            @if (activePlayers().length === 0) {
+              <div class="empty-state">No active players. Add some above.</div>
+            } @else {
+              @for (p of activePlayers(); track p.id; let i = $index) {
+                <div class="player-row" [class.editing-row]="p.editing">
+                  <div class="pr-index">{{ i + 1 }}</div>
+                  <div class="pr-info">
+                    <div class="pr-name-row">
+                      <span class="pr-name">{{ p.name }}</span>
+                      @if (p.isCaptain) { <span class="badge captain-badge">👑 Captain</span> }
+                      @if (p.teamName) { <span class="badge team-badge">{{ p.teamName }}</span> }
+                    </div>
+                    @if (p.cricherosUsername) {
+                      <span class="pr-sub">&#64;{{ p.cricherosUsername }}
+                        @if (p.cricherosId) { &nbsp;· ID: {{ p.cricherosId }} }
+                      </span>
+                    }
+                  </div>
+                  <div class="pr-actions">
+                    <button class="btn-icon edit-btn" (click)="startEditPlayer(p)" title="Edit">✏️</button>
+                    <button class="btn-icon deact-btn" (click)="deactivatePlayer(p)" title="Deactivate">🗑</button>
+                  </div>
+                </div>
+
+                @if (p.editing) {
+                  <div class="inline-edit-form">
+                    <div class="form-grid">
+                      <div class="form-field">
+                        <label>Name</label>
+                        <input [(ngModel)]="p.editName" />
+                      </div>
+                      <div class="form-field">
+                        <label>Team</label>
+                        <select [(ngModel)]="p.editTeamId">
+                          <option [ngValue]="null">— Unassigned —</option>
+                          @for (t of activeTeams(); track t.id) {
+                            <option [ngValue]="t.id">{{ t.name }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="form-field">
+                        <label>Cricheroes Username</label>
+                        <input [(ngModel)]="p.editUsername" placeholder="username" />
+                      </div>
+                      <div class="form-field">
+                        <label>Cricheroes ID</label>
+                        <input [(ngModel)]="p.editCricherosId" placeholder="numeric ID" />
+                      </div>
+                    </div>
+                    <div class="form-check">
+                      <label class="check-label">
+                        <input type="checkbox" [(ngModel)]="p.editIsCaptain" />
+                        Team captain
+                      </label>
+                    </div>
+                    <div class="form-actions">
+                      <button class="btn-ghost-sm" (click)="cancelEditPlayer(p)">Cancel</button>
+                      <button class="btn-save-sm" (click)="saveEditPlayer(p)">Save</button>
+                    </div>
+                  </div>
+                }
+              }
+            }
+
+            <!-- Inactive Players -->
+            @if (inactivePlayers().length > 0) {
+              <div class="section-label inactive-label" style="margin-top:24px; cursor:pointer"
+                (click)="showInactive.set(!showInactive())">
+                Inactive Players ({{ inactivePlayers().length }}) {{ showInactive() ? '▲' : '▼' }}
+              </div>
+              @if (showInactive()) {
+                @for (p of inactivePlayers(); track p.id; let i = $index) {
+                  <div class="player-row inactive-row">
+                    <div class="pr-index dim">{{ i + 1 }}</div>
+                    <div class="pr-info">
+                      <span class="pr-name dim">{{ p.name }}</span>
+                      @if (p.teamName) { <span class="badge team-badge dim">{{ p.teamName }}</span> }
+                    </div>
+                    <div class="pr-actions">
+                      <button class="btn-icon react-btn" (click)="reactivatePlayer(p)" title="Reactivate">♻️</button>
+                    </div>
+                  </div>
+                }
+              }
+            }
+
+          </div>
+        }
+
+        <!-- ══ TEAMS TAB ══ -->
+        @if (tab() === 'teams') {
+          <div class="modal-body">
+
+            <!-- Add Team -->
+            <div class="add-section">
+              <button class="btn-add-toggle" (click)="showAddTeam.set(!showAddTeam())">
+                {{ showAddTeam() ? '✕ Cancel' : '+ Add Team' }}
+              </button>
+              @if (showAddTeam()) {
+                <div class="add-form">
+                  <div class="form-field">
+                    <label>Team Name *</label>
+                    <input [(ngModel)]="newTeamName" placeholder="e.g. Thunder Strikers" />
+                  </div>
+                  @if (addTeamError()) {
+                    <p class="form-error">{{ addTeamError() }}</p>
+                  }
+                  <div class="form-actions">
+                    <button class="btn-save-add" (click)="addTeam()">Save Team</button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Active Teams -->
+            <div class="section-label">Active Teams ({{ activeTeams().length }})</div>
+            @if (activeTeams().length === 0) {
+              <div class="empty-state">No teams yet. Add one above.</div>
+            } @else {
+              @for (t of teamRows(); track t.id; let i = $index) {
+                @if (t.isActive) {
+                  <div class="team-row" [class.editing-row]="t.editing || t.changingCaptain">
+                    <div class="tr-index">{{ i + 1 }}</div>
+                    <div class="tr-info">
+                      @if (!t.editing) {
+                        <span class="tr-name">{{ t.name }}</span>
+                      } @else {
+                        <input class="tr-edit-input" [(ngModel)]="t.editName" (keyup.enter)="saveTeamName(t)" />
+                      }
+                      <div class="tr-meta">
+                        <span class="tr-captain">👑 {{ t.captainName || 'No captain assigned' }}</span>
+                        <span class="tr-count">{{ t.playerCount }} player{{ t.playerCount !== 1 ? 's' : '' }}</span>
+                      </div>
+                    </div>
+                    <div class="tr-actions">
+                      @if (!t.editing) {
+                        <button class="btn-icon edit-btn" (click)="t.editing = true; t.editName = t.name" title="Rename">✏️</button>
+                      } @else {
+                        <button class="btn-icon edit-btn" (click)="saveTeamName(t)" title="Save">✓</button>
+                        <button class="btn-icon" (click)="t.editing = false" title="Cancel">✕</button>
+                      }
+                      <button class="btn-icon captain-btn" (click)="t.changingCaptain = !t.changingCaptain" title="Change Captain">👑</button>
+                      <button class="btn-icon deact-btn" (click)="deactivateTeam(t)" title="Deactivate">🗑</button>
+                    </div>
+                  </div>
+
+                  @if (t.changingCaptain) {
+                    <div class="captain-picker">
+                      <p class="captain-picker-label">Select new captain for {{ t.name }}:</p>
+                      <div class="captain-list">
+                        @for (p of playersForTeam(t.id); track p.id; let pi = $index) {
+                          <div class="captain-option" [class.current-captain]="p.isCaptain"
+                            (click)="setCaptain(t, p)">
+                            <span class="co-index">{{ pi + 1 }}</span>
+                            <span class="co-name">{{ p.name }}</span>
+                            @if (p.isCaptain) { <span class="co-current">current</span> }
+                          </div>
+                        }
+                        @if (playersForTeam(t.id).length === 0) {
+                          <p class="no-players-hint">No active players assigned to this team.</p>
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+              }
+            }
+
+            <!-- Inactive Teams -->
+            @if (inactiveTeams().length > 0) {
+              <div class="section-label inactive-label" style="margin-top:24px; cursor:pointer"
+                (click)="showInactiveTeams.set(!showInactiveTeams())">
+                Inactive Teams ({{ inactiveTeams().length }}) {{ showInactiveTeams() ? '▲' : '▼' }}
+              </div>
+              @if (showInactiveTeams()) {
+                @for (t of inactiveTeams(); track t.id; let i = $index) {
+                  <div class="team-row inactive-row">
+                    <div class="tr-index dim">{{ i + 1 }}</div>
+                    <div class="tr-info"><span class="tr-name dim">{{ t.name }}</span></div>
+                    <div class="tr-actions">
+                      <button class="btn-icon react-btn" (click)="reactivateTeam(t)" title="Reactivate">♻️</button>
+                    </div>
+                  </div>
+                }
+              }
+            }
+
+          </div>
+        }
+
+      </div>
+    </div>

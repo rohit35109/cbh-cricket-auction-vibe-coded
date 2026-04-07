@@ -1,0 +1,247 @@
+    <div class="ww-overlay">
+      <div class="ww-container">
+
+        <!-- Header -->
+        <div class="ww-header">
+          <span class="ww-title">⚡ Weekly Auction Setup</span>
+          <button class="ww-close" (click)="cancel.emit()">✕</button>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="step-bar">
+          @for (s of steps; track s.n) {
+            <div class="step-item" [class.active]="step() === s.n" [class.done]="step() > s.n">
+              <div class="step-circle">{{ step() > s.n ? '✓' : s.n }}</div>
+              <span class="step-label">{{ s.label }}</span>
+            </div>
+            @if (s.n < steps.length) { <div class="step-line" [class.done]="step() > s.n"></div> }
+          }
+        </div>
+
+        <!-- ── STEP 1: Select past auction ── -->
+        @if (step() === 1) {
+          <div class="ww-body">
+            <h2 class="step-heading">Select a past auction</h2>
+            @if (loading()) {
+              <div class="ww-loading">Loading history...</div>
+            } @else if (history().length === 0) {
+              <div class="ww-empty">No completed auctions found. Run a main auction first.</div>
+            } @else {
+              <div class="history-list">
+                @for (rec of history(); track rec.id) {
+                  <div class="history-card" [class.selected]="selectedHistoryId() === rec.id"
+                    [class.legacy-card]="!isNewFormat(rec)"
+                    (click)="selectHistory(rec)">
+                    <div class="hc-top">
+                      <span class="hc-date">{{ formatDate(rec.createdAt) }}</span>
+                      <div class="hc-top-right">
+                        @if (!isNewFormat(rec)) {
+                          <span class="hc-legacy-badge" title="Saved before weekly auction support — cannot be used">⚠ Legacy</span>
+                        } @else {
+                          <span class="hc-compat-badge">✓ Compatible</span>
+                        }
+                        <span class="hc-teams">{{ rec.teamSummaries.length }} teams</span>
+                      </div>
+                    </div>
+                    <div class="hc-teams-list">
+                      @for (ts of rec.teamSummaries; track ts.teamId) {
+                        <span class="hc-team-chip">{{ ts.teamName }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ── STEP 2: Select 2 teams ── -->
+        @if (step() === 2) {
+          <div class="ww-body">
+            <h2 class="step-heading">Select the 2 teams playing this week</h2>
+            @if (selectedHistory()) {
+              <div class="team-grid">
+                @for (ts of selectedHistory()!.teamSummaries; track ts.teamId) {
+                  <div class="team-sel-card"
+                    [class.selected]="isTeamSelected(ts.teamId)"
+                    [class.disabled]="!isTeamSelected(ts.teamId) && selectedTeamIds().length >= 2"
+                    (click)="toggleTeam(ts.teamId)">
+                    <div class="tsc-check">{{ isTeamSelected(ts.teamId) ? '✓' : '' }}</div>
+                    <div class="tsc-name">{{ ts.teamName }}</div>
+                    <div class="tsc-captain">👑 {{ ts.captainName }}</div>
+                  </div>
+                }
+              </div>
+              @if (selectedTeamIds().length === 2) {
+                <p class="sel-hint">Both teams selected. Click Next to continue.</p>
+              } @else {
+                <p class="sel-hint">Select exactly 2 teams ({{ selectedTeamIds().length }}/2 selected)</p>
+              }
+            }
+          </div>
+        }
+
+        <!-- ── STEP 3: Core member availability ── -->
+        @if (step() === 3) {
+          <div class="ww-body">
+            <h2 class="step-heading">Core member availability</h2>
+            <p class="step-sub">Mark who can play this week. Unavailable members sit out — their slots open up for extra pool picks. If the captain is absent, assign a temp captain from available core members.</p>
+            @for (teamAvail of coreAvailability(); track teamAvail.teamId) {
+              <div class="avail-team-section">
+                <div class="avail-team-header">
+                  <span class="avail-team-name">{{ teamAvail.teamName }}</span>
+                </div>
+                <!-- Members list (wrapped so temp-captain-row can attach below) -->
+                <div class="avail-members" [class.has-absent-cap]="isCaptainAbsent(teamAvail)">
+                  @for (member of teamAvail.members; track member.id) {
+                    <div class="avail-row"
+                      [class.captain-row]="member.isCaptain"
+                      [class.row-unavail]="!member.available">
+                      <div class="avail-info">
+                        <span class="avail-name">{{ member.name }}</span>
+                        @if (member.isCaptain) {
+                          <span class="captain-badge" [class.badge-absent]="!member.available">
+                            {{ member.available ? '👑 Captain' : '👑 Captain – Absent' }}
+                          </span>
+                        }
+                      </div>
+                      <div class="avail-toggle">
+                        <button class="toggle-btn" [class.avail]="member.available"
+                          (click)="setMemberAvailability(teamAvail, member, true)">
+                          Available
+                        </button>
+                        <button class="toggle-btn" [class.unavail]="!member.available"
+                          (click)="setMemberAvailability(teamAvail, member, false)">
+                          Unavailable
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <!-- Temp captain selector — shown when captain is absent -->
+                @if (isCaptainAbsent(teamAvail)) {
+                  <div class="temp-captain-row">
+                    <div class="tc-label">⚠ Captain absent — select a temp captain for this match:</div>
+                    @if (getAvailableCoreMembers(teamAvail).length === 0) {
+                      <div class="tc-no-options">No available core members. Mark at least one member as available to assign a temp captain.</div>
+                    } @else {
+                      <div class="tc-options">
+                        @for (cm of getAvailableCoreMembers(teamAvail); track cm.id) {
+                          <button class="tc-option" [class.tc-selected]="teamAvail.tempCaptainId === cm.id"
+                            (click)="setTempCaptain(teamAvail, cm.id)">
+                            {{ cm.name }}
+                            @if (teamAvail.tempCaptainId === cm.id) {
+                              <span class="tc-check">✓</span>
+                            }
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ── STEP 4: Other player availability ── -->
+        @if (step() === 4) {
+          <div class="ww-body">
+            <h2 class="step-heading">Other player availability</h2>
+            <p class="step-sub">Mark who's available from the pool. Use "Add Temp Player" at the bottom to add anyone not in the system.</p>
+
+            @if (otherPlayers().length > 0) {
+              @for (p of otherPlayers(); track p.id) {
+                <div class="other-row">
+                  <div class="other-info">
+                    <span class="other-name">{{ p.name }}</span>
+                    @if (p.username) { <span class="other-sub">&#64;{{ p.username }}</span> }
+                  </div>
+                  <div class="other-avail-toggle">
+                    <button class="toggle-btn sm" [class.avail]="p.available"
+                      (click)="p.available = true; p.tempName = ''">
+                      Available
+                    </button>
+                    <button class="toggle-btn sm" [class.unavail]="!p.available"
+                      (click)="p.available = false">
+                      Unavailable
+                    </button>
+                  </div>
+                  @if (!p.available) {
+                    <input class="temp-input" [(ngModel)]="p.tempName"
+                      placeholder="Replacement name (optional)" />
+                  }
+                </div>
+              }
+            } @else {
+              <div class="ww-empty-inline">No other players in the pool for this auction.</div>
+            }
+
+            <!-- ── Add extra temp players ── -->
+            <div class="extra-temp-section">
+              <div class="extra-temp-header">
+                <span class="extra-temp-title">➕ Add Temp Players</span>
+                <span class="extra-temp-hint">One-off players for this week only (not saved to your roster)</span>
+              </div>
+
+              @if (extraTempPlayers().length > 0) {
+                <div class="extra-temp-list">
+                  @for (tp of extraTempPlayers(); track $index; let i = $index) {
+                    <div class="extra-temp-item">
+                      <span class="extra-temp-idx">{{ i + 1 }}.</span>
+                      <span class="extra-temp-name">{{ tp }}</span>
+                      <button class="extra-temp-remove" (click)="removeExtraTemp(i)" title="Remove">✕</button>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="extra-temp-add-row">
+                <input class="temp-input extra-temp-input" [(ngModel)]="newTempName"
+                  placeholder="Player name"
+                  (keydown.enter)="addExtraTemp()" />
+                <button class="btn-add-temp" (click)="addExtraTemp()"
+                  [disabled]="!newTempName.trim()">
+                  + Add
+                </button>
+              </div>
+            </div>
+
+          </div>
+        }
+
+        <!-- Footer -->
+        <div class="ww-footer">
+          @if (step() >= 3) {
+            <div class="total-counter" [class.total-ok]="weeklyTotal() >= 22 && weeklyTotal() <= 24"
+              [class.total-low]="weeklyTotal() < 22" [class.total-high]="weeklyTotal() > 24">
+              <span class="total-label">Total players:</span>
+              <span class="total-val">{{ weeklyTotal() }}</span>
+              <span class="total-range">/ target 22–24</span>
+              @if (weeklyTotal() < 22) {
+                <span class="total-hint">need {{ 22 - weeklyTotal() }} more</span>
+              } @else if (weeklyTotal() > 24) {
+                <span class="total-hint">{{ weeklyTotal() - 24 }} too many</span>
+              }
+            </div>
+          }
+          @if (errorMsg()) {
+            <span class="ww-error">{{ errorMsg() }}</span>
+          }
+          <div class="footer-btns">
+            @if (step() > 1) {
+              <button class="btn-back" (click)="prevStep()">← Back</button>
+            }
+            @if (step() < 4) {
+              <button class="btn-next" (click)="nextStep()" [disabled]="!canNext()">
+                Next →
+              </button>
+            } @else {
+              <button class="btn-start" (click)="startWeeklyAuction()" [disabled]="saving()">
+                {{ saving() ? 'Starting...' : '⚡ Start Weekly Auction' }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
