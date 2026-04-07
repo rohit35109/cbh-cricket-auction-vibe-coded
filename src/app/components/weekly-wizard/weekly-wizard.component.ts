@@ -99,7 +99,7 @@ import {
         @if (step() === 3) {
           <div class="ww-body">
             <h2 class="step-heading">Core member availability</h2>
-            <p class="step-sub">Mark which core members are available to play this week</p>
+            <p class="step-sub">Mark which core members are available. Unavailable members can have an optional replacement name.</p>
             @for (teamAvail of coreAvailability(); track teamAvail.teamId) {
               <div class="avail-team-section">
                 <div class="avail-team-header">
@@ -111,17 +111,28 @@ import {
                       <span class="avail-name">{{ member.name }}</span>
                       @if (member.isCaptain) { <span class="captain-badge">👑 Captain</span> }
                     </div>
-                    <div class="avail-toggle">
-                      <button class="toggle-btn" [class.avail]="member.available"
-                        (click)="member.available = true">
-                        Available
-                      </button>
-                      <button class="toggle-btn" [class.unavail]="!member.available"
-                        (click)="member.available = false">
-                        Unavailable
-                      </button>
-                    </div>
+                    @if (member.isCaptain) {
+                      <!-- Captain always plays — no toggle -->
+                      <span class="always-plays-label">Always plays</span>
+                    } @else {
+                      <div class="avail-toggle">
+                        <button class="toggle-btn" [class.avail]="member.available"
+                          (click)="member.available = true; member.tempName = ''">
+                          Available
+                        </button>
+                        <button class="toggle-btn" [class.unavail]="!member.available"
+                          (click)="member.available = false">
+                          Unavailable
+                        </button>
+                      </div>
+                    }
                   </div>
+                  @if (!member.isCaptain && !member.available) {
+                    <div class="core-temp-row">
+                      <input class="temp-input" [(ngModel)]="member.tempName"
+                        placeholder="Replacement player name (optional)" />
+                    </div>
+                  }
                 }
               </div>
             }
@@ -281,14 +292,23 @@ import {
     .avail-team-name { font-size: 0.95rem; font-weight: 700; color: #f8fafc; }
     .avail-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 12px; border-radius: 8px; margin-bottom: 6px;
-      background: #0f172a; border: 1px solid #334155;
+      padding: 10px 12px; border-radius: 8px; margin-bottom: 0;
+      background: #0f172a; border: 1px solid #334155; border-bottom: none;
     }
-    .avail-row.captain-row { border-color: #f59e0b44; }
+    .avail-row:last-of-type { border-bottom: 1px solid #334155; margin-bottom: 6px; border-radius: 0 0 8px 8px; }
+    .avail-row:first-of-type { border-radius: 8px 8px 0 0; }
+    .avail-row:only-of-type { border-bottom: 1px solid #334155; border-radius: 8px; margin-bottom: 6px; }
+    .avail-row.captain-row { border-color: #f59e0b44; background: rgba(245,158,11,0.03); }
     .avail-info { display: flex; align-items: center; gap: 10px; flex: 1; }
     .avail-name { font-size: 0.88rem; color: #e2e8f0; font-weight: 500; }
     .captain-badge { font-size: 0.72rem; background: rgba(245,158,11,0.15); color: #f59e0b; padding: 2px 8px; border-radius: 99px; }
+    .always-plays-label { font-size: 0.72rem; color: #475569; font-style: italic; }
     .avail-toggle { display: flex; gap: 6px; }
+    .core-temp-row {
+      padding: 0 12px 8px; background: #0f172a;
+      border: 1px solid #334155; border-top: none; border-radius: 0 0 8px 8px;
+      margin-bottom: 6px;
+    }
 
     /* Step 4 - other players */
     .other-row {
@@ -370,7 +390,7 @@ export class WeeklyWizardComponent implements OnInit {
   coreAvailability = signal<Array<{
     teamId: number;
     teamName: string;
-    members: Array<{ id: number; name: string; isCaptain: boolean; available: boolean }>;
+    members: Array<{ id: number; name: string; isCaptain: boolean; available: boolean; tempName: string }>;
   }>>([]);
 
   // Step 4 data
@@ -449,13 +469,13 @@ export class WeeklyWizardComponent implements OnInit {
     const avail = teamIds.map(tid => {
       const ts = rec.teamSummaries.find(t => t.teamId === tid)!;
       const snapshot = rec.playerSnapshot ?? {};
-      const members: Array<{ id: number; name: string; isCaptain: boolean; available: boolean }> = [];
-      // Captain first (captainId guaranteed present after validation)
-      members.push({ id: ts.captainId ?? 0, name: ts.captainName, isCaptain: true, available: true });
-      // Other core members (memberIds guaranteed array after validation)
+      const members: Array<{ id: number; name: string; isCaptain: boolean; available: boolean; tempName: string }> = [];
+      // Captain first (always available, no toggle)
+      members.push({ id: ts.captainId ?? 0, name: ts.captainName, isCaptain: true, available: true, tempName: '' });
+      // Other core members
       for (const mid of ts.memberIds ?? []) {
         const name = snapshot[mid]?.name || `Player #${mid}`;
-        members.push({ id: mid, name, isCaptain: false, available: true });
+        members.push({ id: mid, name, isCaptain: false, available: true, tempName: '' });
       }
       return { teamId: tid, teamName: ts.teamName, members };
     });
@@ -565,7 +585,32 @@ export class WeeklyWizardComponent implements OnInit {
         }
       }
 
-      // Core members are already in their teams — only other players go in the pool
+      // Core members are already in their teams — only other players (+ replacements) go in the pool
+
+      // Temp replacements for unavailable core members also enter the pool
+      for (const teamAvail of coreAvail) {
+        for (const m of teamAvail.members) {
+          if (m.isCaptain || m.available || !m.tempName.trim()) continue;
+          const tid = `temp_${tempIdx++}`;
+          pool.push(tid);
+          playerIndex[tid] = {
+            id: tid, name: m.tempName.trim(),
+            isTemp: true, originalPlayerId: m.id
+          };
+        }
+      }
+
+      // Validate total players ≤ 24
+      // Total = 2 captains + team1 core picks + team2 core picks + pool
+      const totalInMatch = 2 + team1.pickedIds.length + team2.pickedIds.length + pool.length;
+      if (totalInMatch > 24) {
+        this.errorMsg.set(
+          `Total players (${totalInMatch}) exceeds the maximum of 24. Please mark more players as unavailable.`
+        );
+        this.saving.set(false);
+        return;
+      }
+
       // Shuffle pool
       for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));

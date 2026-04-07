@@ -25,7 +25,10 @@ import {
         </div>
         <div class="top-bar-right">
           @if (auction()?.phase === 'picking') {
-            <span class="pool-stat">Pool: {{ auction()!.pool.length }} remaining</span>
+            <span class="pool-stat">
+              Pool: {{ auction()!.pool.length }} remaining
+              &nbsp;|&nbsp; Max/team: {{ perTeamCap() }}
+            </span>
           }
           @if (auction()?.phase === 'picking' || auction()?.phase === 'swap') {
             <button class="btn-finish" (click)="showFinishConfirm.set(true)">Mark Complete</button>
@@ -116,7 +119,7 @@ import {
 
           <!-- MIDDLE: Current pick turn -->
           <div class="panel panel-mid">
-            @if (currentPickTeam()) {
+            @if (currentPickTeam() && !isTeamFull(currentPickTeam()!)) {
               <div class="pick-turn-header">
                 <div class="pick-turn-info">
                   <span class="pick-turn-label">Captain's Choice</span>
@@ -124,8 +127,8 @@ import {
                   <span class="pick-team-name">{{ currentPickTeam()!.teamName }}</span>
                 </div>
                 <div class="pick-slots">
-                  <span class="slots-label">Picked</span>
-                  <span class="slots-val">{{ currentPickTeam()!.pickedIds.length }}</span>
+                  <span class="slots-label">{{ teamSizeLabel(currentPickTeam()!) }}</span>
+                  <span class="slots-cap-label">players</span>
                 </div>
               </div>
 
@@ -163,23 +166,46 @@ import {
                   <button class="btn-proceed-swap" (click)="proceedToSwap()">Proceed to Swap Phase →</button>
                 </div>
               }
+            } @else {
+              <!-- Both teams full OR pool empty with no active picker -->
+              <div class="no-pool-state">
+                <span class="np-icon">✅</span>
+                @if (isTeamFull(auction()!.team1) && isTeamFull(auction()!.team2)) {
+                  <p>Both teams are at maximum size!</p>
+                } @else {
+                  <p>All available players have been picked.</p>
+                }
+                <button class="btn-proceed-swap" (click)="proceedToSwap()">Proceed to Swap Phase →</button>
+              </div>
             }
           </div>
 
           <!-- RIGHT: Teams -->
           <div class="panel panel-right">
-            <div class="panel-header"><span>Teams</span></div>
+            <div class="panel-header">
+              <span>Teams</span>
+              <span class="cap-hint">cap: {{ perTeamCap() }}</span>
+            </div>
             <div class="panel-scroll">
               @for (team of bothTeams(); track team.teamId) {
-                <div class="team-card" [class.current-team]="team.teamId === auction()!.currentPickTeamId">
+                <div class="team-card"
+                  [class.current-team]="team.teamId === auction()!.currentPickTeamId"
+                  [class.team-full]="isTeamFull(team)">
                   <div class="tc-header">
                     <div class="tc-info">
                       <span class="tc-name">{{ team.teamName }}</span>
                       <span class="tc-captain">👑 {{ team.captainName }}</span>
                     </div>
-                    @if (team.teamId === auction()!.currentPickTeamId) {
-                      <span class="picking-now">Picking</span>
-                    }
+                    <div class="tc-right">
+                      <span class="tc-size" [class.tc-size-full]="isTeamFull(team)">
+                        {{ teamSizeLabel(team) }}
+                      </span>
+                      @if (isTeamFull(team)) {
+                        <span class="full-chip">Full ✓</span>
+                      } @else if (team.teamId === auction()!.currentPickTeamId) {
+                        <span class="picking-now">Picking</span>
+                      }
+                    </div>
                   </div>
                   @if (team.pickedIds.length > 0) {
                     <div class="tc-members">
@@ -444,9 +470,9 @@ import {
     .pick-turn-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
     .pick-captain-name { font-size: 1.55rem; font-weight: 800; color: #f8fafc; }
     .pick-team-name { font-size: 0.82rem; color: #22c55e; }
-    .pick-slots { text-align: center; }
-    .slots-label { display: block; font-size: 0.7rem; color: #64748b; }
-    .slots-val { font-size: 2rem; font-weight: 800; color: #22c55e; }
+    .pick-slots { text-align: center; display: flex; flex-direction: column; align-items: center; }
+    .slots-label { display: block; font-size: 1.3rem; font-weight: 800; color: #22c55e; }
+    .slots-cap-label { display: block; font-size: 0.65rem; color: #64748b; }
 
     /* Pick list */
     .pick-list-container { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
@@ -489,11 +515,18 @@ import {
       background: #1e293b; border: 1px solid #334155; transition: all 0.2s;
     }
     .team-card.current-team { border-color: #22c55e; background: rgba(34,197,94,0.06); }
+    .cap-hint { font-size: 0.7rem; color: #475569; }
     .tc-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-    .tc-info { display: flex; flex-direction: column; }
+    .tc-info { display: flex; flex-direction: column; flex: 1; }
     .tc-name { font-size: 0.9rem; font-weight: 700; color: #f8fafc; }
     .tc-captain { font-size: 0.72rem; color: #94a3b8; }
-    .picking-now { font-size: 0.7rem; background: rgba(34,197,94,0.2); color: #22c55e; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+    .tc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+    .tc-size { font-size: 0.75rem; color: #64748b; font-weight: 600; }
+    .tc-size.tc-size-full { color: #22c55e; }
+    .full-chip { font-size: 0.65rem; background: rgba(34,197,94,0.15); color: #22c55e; padding: 2px 7px; border-radius: 99px; font-weight: 700; }
+    .picking-now { font-size: 0.68rem; background: rgba(34,197,94,0.2); color: #22c55e; padding: 2px 7px; border-radius: 99px; font-weight: 600; }
+    .team-card.team-full { border-color: rgba(34,197,94,0.3); opacity: 0.8; }
+    .slots-cap-label { font-size: 0.65rem; color: #64748b; margin-top: -2px; }
     .tc-members { border-top: 1px solid #334155; padding-top: 6px; }
     .tc-member { font-size: 0.78rem; color: #94a3b8; padding: 2px 0; display: flex; align-items: center; gap: 5px; }
     .core-dot { color: #f59e0b; font-size: 0.5rem; }
@@ -634,6 +667,27 @@ export class WeeklyAuctionComponent implements OnInit, OnDestroy {
     return a.team1.teamId === id ? a.team1.teamName : a.team2.teamName;
   });
 
+  /**
+   * Per-team cap (including captain).
+   * = min(12, ceil(totalPlayers / 2))
+   * Total players = 2 captains + all pickedIds + remaining pool (constant throughout).
+   */
+  perTeamCap = computed(() => {
+    const a = this.auction();
+    if (!a) return 12;
+    const total = 2 + a.team1.pickedIds.length + a.team2.pickedIds.length + a.pool.length;
+    return Math.min(12, Math.ceil(total / 2));
+  });
+
+  isTeamFull(team: WeeklyTeamState): boolean {
+    // captain (1) + pickedIds ≥ cap
+    return 1 + team.pickedIds.length >= this.perTeamCap();
+  }
+
+  teamSizeLabel(team: WeeklyTeamState): string {
+    return `${1 + team.pickedIds.length} / ${this.perTeamCap()}`;
+  }
+
   async ngOnInit() {
     const existing = await this.db.getCurrentWeeklyAuction();
     if (existing) this.auction.set(existing);
@@ -715,20 +769,39 @@ export class WeeklyAuctionComponent implements OnInit, OnDestroy {
     const pool = a.pool.filter(p => p !== pid);
 
     // Add to current team's pickedIds
-    const team1 = a.currentPickTeamId === a.team1.teamId
+    const isTeam1Picking = a.currentPickTeamId === a.team1.teamId;
+    const team1 = isTeam1Picking
       ? { ...a.team1, pickedIds: [...a.team1.pickedIds, pid] }
       : a.team1;
-    const team2 = a.currentPickTeamId === a.team2.teamId
+    const team2 = !isTeam1Picking
       ? { ...a.team2, pickedIds: [...a.team2.pickedIds, pid] }
       : a.team2;
 
-    // Alternate pick team
-    const nextTeamId = a.currentPickTeamId === a.team1.teamId ? a.team2.teamId : a.team1.teamId;
+    // Re-evaluate cap after this pick (total is constant, but recalculate cleanly)
+    const newTotal = 2 + team1.pickedIds.length + team2.pickedIds.length + pool.length;
+    const cap = Math.min(12, Math.ceil(newTotal / 2));
+    const t1Full = 1 + team1.pickedIds.length >= cap;
+    const t2Full = 1 + team2.pickedIds.length >= cap;
+
+    // Next team to pick — alternate, but skip if full
+    const otherTeamId = isTeam1Picking ? a.team2.teamId : a.team1.teamId;
+    const otherFull = isTeam1Picking ? t2Full : t1Full;
+    const currentFull = isTeam1Picking ? t1Full : t2Full;
+
+    let nextPickTeamId: number | null = a.currentPickTeamId;
+    if (pool.length > 0) {
+      if (!otherFull) {
+        nextPickTeamId = otherTeamId;       // normal alternation
+      } else if (!currentFull) {
+        nextPickTeamId = a.currentPickTeamId; // other team is full, current keeps going
+      } else {
+        nextPickTeamId = null;              // both full — picking should stop
+      }
+    }
 
     const updated: ActiveWeeklyAuction = {
       ...a, pool, team1, team2,
-      currentPickTeamId: pool.length > 0 ? nextTeamId : a.currentPickTeamId,
-      phase: pool.length > 0 ? 'picking' : 'picking' // stays picking until manually advanced
+      currentPickTeamId: nextPickTeamId
     };
     this.auction.set(updated);
     await this.db.saveCurrentWeeklyAuction(updated);
