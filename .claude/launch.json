@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Cricket Auction",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 4200
+    }
+  ]
+}
