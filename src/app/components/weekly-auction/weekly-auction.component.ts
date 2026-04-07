@@ -136,14 +136,17 @@ import {
                 <div class="pick-list-container">
                   <p class="pick-list-hint">Select a player to pick:</p>
                   <div class="pick-list">
-                    @for (pid of auction()!.pool; track pid) {
+                    @for (pid of auction()!.pool; track pid; let i = $index) {
                       <div class="pick-list-item"
                         [class.highlighted]="highlightedPid() === pid"
                         (mouseenter)="highlightedPid.set(pid)"
                         (mouseleave)="highlightedPid.set(null)"
                         (click)="pickPlayer(pid)">
                         <div class="pli-left">
-                          <span class="pli-name">{{ getPlayer(pid)?.name }}</span>
+                          <div class="pli-name-row">
+                            <span class="pli-idx">{{ i + 1 }}.</span>
+                            <span class="pli-name">{{ getPlayer(pid)?.name }}</span>
+                          </div>
                           <div class="pli-tags">
                             @if (isCorePlayer(pid)) { <span class="core-tag sm">Core</span> }
                             @if (getPlayer(pid)?.isTemp) { <span class="temp-tag sm">Temp</span> }
@@ -209,9 +212,10 @@ import {
                   </div>
                   @if (team.pickedIds.length > 0) {
                     <div class="tc-members">
-                      @for (pid of team.pickedIds; track pid) {
+                      @for (pid of team.pickedIds; track pid; let i = $index) {
                         <div class="tc-member">
-                          • {{ getPlayer(pid)?.name }}
+                          <span class="tc-idx">{{ i + 1 }}.</span>
+                          {{ getPlayer(pid)?.name }}
                           @if (isCorePlayerForTeam(pid, team.teamId)) { <span class="core-dot">●</span> }
                         </div>
                       }
@@ -485,6 +489,8 @@ import {
     }
     .pick-list-item:hover, .pick-list-item.highlighted { border-color: #22c55e; background: rgba(34,197,94,0.07); }
     .pli-left { display: flex; flex-direction: column; gap: 4px; }
+    .pli-name-row { display: flex; align-items: baseline; gap: 7px; }
+    .pli-idx { font-size: 0.72rem; color: #475569; min-width: 20px; flex-shrink: 0; }
     .pli-name { font-size: 0.95rem; font-weight: 600; color: #f8fafc; }
     .pli-tags { display: flex; align-items: center; gap: 6px; }
     .pli-user { font-size: 0.72rem; color: #64748b; }
@@ -528,7 +534,8 @@ import {
     .team-card.team-full { border-color: rgba(34,197,94,0.3); opacity: 0.8; }
     .slots-cap-label { font-size: 0.65rem; color: #64748b; margin-top: -2px; }
     .tc-members { border-top: 1px solid #334155; padding-top: 6px; }
-    .tc-member { font-size: 0.78rem; color: #94a3b8; padding: 2px 0; display: flex; align-items: center; gap: 5px; }
+    .tc-member { font-size: 0.78rem; color: #94a3b8; padding: 2px 0; display: flex; align-items: baseline; gap: 5px; }
+    .tc-idx { color: #475569; font-size: 0.7rem; min-width: 16px; flex-shrink: 0; }
     .core-dot { color: #f59e0b; font-size: 0.5rem; }
     .tc-empty { font-size: 0.75rem; color: #475569; padding-top: 4px; }
 

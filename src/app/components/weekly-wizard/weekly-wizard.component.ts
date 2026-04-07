@@ -174,6 +174,19 @@ import {
 
         <!-- Footer -->
         <div class="ww-footer">
+          @if (step() >= 3) {
+            <div class="total-counter" [class.total-ok]="weeklyTotal() >= 22 && weeklyTotal() <= 24"
+              [class.total-low]="weeklyTotal() < 22" [class.total-high]="weeklyTotal() > 24">
+              <span class="total-label">Total players:</span>
+              <span class="total-val">{{ weeklyTotal() }}</span>
+              <span class="total-range">/ target 22–24</span>
+              @if (weeklyTotal() < 22) {
+                <span class="total-hint">need {{ 22 - weeklyTotal() }} more</span>
+              } @else if (weeklyTotal() > 24) {
+                <span class="total-hint">{{ weeklyTotal() - 24 }} too many</span>
+              }
+            </div>
+          }
           @if (errorMsg()) {
             <span class="ww-error">{{ errorMsg() }}</span>
           }
@@ -339,10 +352,27 @@ import {
 
     /* Footer */
     .ww-footer {
-      padding: 14px 24px; border-top: 1px solid #334155; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px; border-top: 1px solid #334155; flex-shrink: 0;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
     }
-    .ww-error { font-size: 0.82rem; color: #ef4444; }
+    .total-counter {
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 12px; border-radius: 8px; border: 1px solid #334155;
+      background: #1e293b; transition: all 0.3s;
+    }
+    .total-counter.total-ok { border-color: #22c55e44; background: rgba(34,197,94,0.08); }
+    .total-counter.total-low { border-color: #f59e0b44; background: rgba(245,158,11,0.08); }
+    .total-counter.total-high { border-color: #ef444444; background: rgba(239,68,68,0.08); }
+    .total-label { font-size: 0.72rem; color: #64748b; }
+    .total-val { font-size: 1rem; font-weight: 800; color: #f8fafc; }
+    .total-counter.total-ok .total-val { color: #22c55e; }
+    .total-counter.total-low .total-val { color: #f59e0b; }
+    .total-counter.total-high .total-val { color: #ef4444; }
+    .total-range { font-size: 0.7rem; color: #475569; }
+    .total-hint { font-size: 0.7rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; }
+    .total-low .total-hint { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .total-high .total-hint { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .ww-error { font-size: 0.82rem; color: #ef4444; flex: 1; min-width: 0; }
     .footer-btns { display: flex; gap: 10px; margin-left: auto; }
     .btn-back {
       background: transparent; border: 1px solid #334155; color: #94a3b8;
@@ -392,6 +422,23 @@ export class WeeklyWizardComponent implements OnInit {
     teamName: string;
     members: Array<{ id: number; name: string; isCaptain: boolean; available: boolean; tempName: string }>;
   }>>([]);
+
+  /** Running total of players who will participate this week (updates live in steps 3 & 4) */
+  weeklyTotal = computed(() => {
+    let total = 2; // 2 captains always play
+    for (const teamAvail of this.coreAvailability()) {
+      for (const m of teamAvail.members) {
+        if (m.isCaptain) continue;
+        if (m.available) total++;
+        else if (m.tempName?.trim()) total++; // replacement counts
+      }
+    }
+    for (const op of this.otherPlayers()) {
+      if (op.available) total++;
+      else if (op.tempName?.trim()) total++;
+    }
+    return total;
+  });
 
   // Step 4 data
   otherPlayers = signal<Array<{
@@ -600,12 +647,19 @@ export class WeeklyWizardComponent implements OnInit {
         }
       }
 
-      // Validate total players ≤ 24
+      // Validate total players is between 22 and 24
       // Total = 2 captains + team1 core picks + team2 core picks + pool
       const totalInMatch = 2 + team1.pickedIds.length + team2.pickedIds.length + pool.length;
       if (totalInMatch > 24) {
         this.errorMsg.set(
           `Total players (${totalInMatch}) exceeds the maximum of 24. Please mark more players as unavailable.`
+        );
+        this.saving.set(false);
+        return;
+      }
+      if (totalInMatch < 22) {
+        this.errorMsg.set(
+          `Total players (${totalInMatch}) is below the minimum of 22. Mark more players as available or add ${22 - totalInMatch} more temp replacement(s).`
         );
         this.saving.set(false);
         return;

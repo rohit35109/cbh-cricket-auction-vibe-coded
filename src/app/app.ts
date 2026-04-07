@@ -8,13 +8,14 @@ import { AuctionScreenComponent } from './components/auction-screen/auction-scre
 import { HistoryModalComponent } from './components/history-modal/history-modal.component';
 import { WeeklyWizardComponent } from './components/weekly-wizard/weekly-wizard.component';
 import { WeeklyAuctionComponent } from './components/weekly-auction/weekly-auction.component';
+import { ManageComponent } from './components/manage/manage.component';
 
 type View = 'landing' | 'auction' | 'weekly-auction';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [WizardComponent, AuctionScreenComponent, HistoryModalComponent, WeeklyWizardComponent, WeeklyAuctionComponent],
+  imports: [WizardComponent, AuctionScreenComponent, HistoryModalComponent, WeeklyWizardComponent, WeeklyAuctionComponent, ManageComponent],
   template: `
     <div class="app-shell">
 
@@ -35,16 +36,10 @@ type View = 'landing' | 'auction' | 'weekly-auction';
                 <div class="action-group">
                   <span class="group-label">Main Auction</span>
                   @if (hasActiveAuction()) {
-                    <button class="btn-resume" (click)="resumeAuction()">
-                      ▶ Resume Auction
-                    </button>
-                    <button class="btn-start-new" (click)="startNew()">
-                      + Start New Auction
-                    </button>
+                    <button class="btn-resume" (click)="resumeAuction()">▶ Resume Auction</button>
+                    <button class="btn-start-new" (click)="startNew()">+ Start New Auction</button>
                   } @else {
-                    <button class="btn-start" (click)="showWizard.set(true)">
-                      + Start New Auction
-                    </button>
+                    <button class="btn-start" (click)="showWizard.set(true)">+ Start New Auction</button>
                   }
                 </div>
 
@@ -52,22 +47,26 @@ type View = 'landing' | 'auction' | 'weekly-auction';
                 <div class="action-group">
                   <span class="group-label">Weekly Match</span>
                   @if (hasActiveWeeklyAuction()) {
-                    <button class="btn-weekly-resume" (click)="resumeWeeklyAuction()">
-                      ▶ Resume Weekly Auction
-                    </button>
-                    <button class="btn-weekly" (click)="showWeeklyWizard.set(true)">
-                      ⚡ New Weekly Auction
-                    </button>
+                    <button class="btn-weekly-resume" (click)="resumeWeeklyAuction()">▶ Resume Weekly Auction</button>
+                    <button class="btn-weekly" (click)="showWeeklyWizard.set(true)">⚡ New Weekly Auction</button>
                   } @else {
-                    <button class="btn-weekly" (click)="showWeeklyWizard.set(true)">
-                      ⚡ Weekly Auction
-                    </button>
+                    <button class="btn-weekly" (click)="showWeeklyWizard.set(true)">⚡ Weekly Auction</button>
                   }
                 </div>
 
-                <button class="btn-history" (click)="showHistory.set(true)">
-                  📜 View History
-                </button>
+                <!-- Management -->
+                <div class="action-group">
+                  <span class="group-label">Manage</span>
+                  <div class="manage-row">
+                    <button class="btn-manage" (click)="showManage.set(true)">
+                      👥 Teams &amp; Players
+                    </button>
+                    <button class="btn-history" (click)="showHistory.set(true)">
+                      📜 History
+                    </button>
+                  </div>
+                </div>
+
               </div>
 
               @if (hasActiveAuction()) {
@@ -119,6 +118,11 @@ type View = 'landing' | 'auction' | 'weekly-auction';
       <!-- ══ HISTORY MODAL ══ -->
       @if (showHistory()) {
         <app-history-modal (close)="showHistory.set(false)" />
+      }
+
+      <!-- ══ MANAGE MODAL ══ -->
+      @if (showManage()) {
+        <app-manage (close)="showManage.set(false)" />
       }
 
       <!-- ══ CONFIRM: Start new main auction ══ -->
@@ -197,9 +201,16 @@ type View = 'landing' | 'auction' | 'weekly-auction';
     }
     .btn-weekly-resume:hover { opacity: 0.88; transform: translateY(-1px); }
 
+    .manage-row { display: flex; gap: 8px; }
+    .btn-manage {
+      flex: 1; padding: 12px 14px; border-radius: 10px;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.4); color: #93c5fd; transition: all 0.2s;
+    }
+    .btn-manage:hover { background: rgba(59,130,246,0.18); }
     .btn-history {
-      width: 100%; padding: 13px 20px; border-radius: 10px;
-      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      flex: 1; padding: 12px 14px; border-radius: 10px;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
       background: transparent; border: 1px solid #334155; color: #64748b; transition: all 0.2s;
     }
     .btn-history:hover { border-color: #475569; color: #94a3b8; }
@@ -251,6 +262,7 @@ export class App implements OnInit {
   showWizard = signal(false);
   showWeeklyWizard = signal(false);
   showHistory = signal(false);
+  showManage = signal(false);
   showNewConfirm = signal(false);
   hasActiveAuction = signal(false);
   hasActiveWeeklyAuction = signal(false);

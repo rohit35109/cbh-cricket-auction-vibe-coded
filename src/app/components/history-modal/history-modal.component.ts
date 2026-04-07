@@ -66,8 +66,8 @@ import { AuctionHistoryRecord, WeeklyMatchRecord } from '../../models/models';
                           <div class="ts-captain">👑 {{ ts.captainName }}</div>
                           @if (ts.memberNames.length > 0) {
                             <div class="ts-members">
-                              @for (m of ts.memberNames; track $index) {
-                                <div class="ts-member">• {{ m }}</div>
+                              @for (m of ts.memberNames; track $index; let i = $index) {
+                                <div class="ts-member"><span class="ts-idx">{{ i + 1 }}.</span> {{ m }}</div>
                               }
                             </div>
                           } @else {
@@ -106,8 +106,8 @@ import { AuctionHistoryRecord, WeeklyMatchRecord } from '../../models/models';
                                 <div class="wm-team-name">{{ wm.team1.teamName }}</div>
                                 <div class="wm-captain">👑 {{ wm.team1.captainName }}</div>
                                 <div class="wm-players">
-                                  @for (p of wm.team1.playerNames; track $index) {
-                                    <span class="wm-player">{{ p }}</span>
+                                  @for (p of wm.team1.playerNames; track $index; let i = $index) {
+                                    <span class="wm-player"><span class="wm-idx">{{ i + 1 }}.</span> {{ p }}</span>
                                   }
                                   @if (wm.team1.playerNames.length === 0) {
                                     <span class="wm-no-players">No picks</span>
@@ -119,8 +119,8 @@ import { AuctionHistoryRecord, WeeklyMatchRecord } from '../../models/models';
                                 <div class="wm-team-name">{{ wm.team2.teamName }}</div>
                                 <div class="wm-captain">👑 {{ wm.team2.captainName }}</div>
                                 <div class="wm-players">
-                                  @for (p of wm.team2.playerNames; track $index) {
-                                    <span class="wm-player">{{ p }}</span>
+                                  @for (p of wm.team2.playerNames; track $index; let i = $index) {
+                                    <span class="wm-player"><span class="wm-idx">{{ i + 1 }}.</span> {{ p }}</span>
                                   }
                                   @if (wm.team2.playerNames.length === 0) {
                                     <span class="wm-no-players">No picks</span>
@@ -220,7 +220,8 @@ import { AuctionHistoryRecord, WeeklyMatchRecord } from '../../models/models';
     .partial-badge { font-size: 0.7rem; color: #f59e0b; font-weight: 600; }
     .ts-captain { font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px; }
     .ts-members { display: flex; flex-direction: column; gap: 2px; }
-    .ts-member { font-size: 0.78rem; color: #cbd5e1; }
+    .ts-member { font-size: 0.78rem; color: #cbd5e1; display: flex; gap: 5px; }
+    .ts-idx { color: #475569; font-size: 0.7rem; min-width: 16px; flex-shrink: 0; }
     .ts-no-picks { font-size: 0.78rem; color: #475569; font-style: italic; }
     .unsold-section { margin-top: 14px; }
     .unsold-title { font-size: 0.85rem; color: #94a3b8; margin: 0 0 8px; font-weight: 600; }
@@ -253,8 +254,8 @@ import { AuctionHistoryRecord, WeeklyMatchRecord } from '../../models/models';
     .wm-team-name { font-size: 0.9rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px; }
     .wm-captain { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; }
     .wm-players { display: flex; flex-direction: column; gap: 3px; }
-    .wm-player { font-size: 0.78rem; color: #cbd5e1; }
-    .wm-player::before { content: '• '; color: #475569; }
+    .wm-player { font-size: 0.78rem; color: #cbd5e1; display: flex; gap: 5px; }
+    .wm-idx { color: #475569; font-size: 0.7rem; min-width: 16px; flex-shrink: 0; }
     .wm-no-players { font-size: 0.75rem; color: #475569; font-style: italic; }
   `]
 })

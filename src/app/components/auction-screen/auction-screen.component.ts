@@ -231,8 +231,8 @@ import { ActiveAuction, AuctionTeamEntry, AuctionHistoryRecord } from '../../mod
                   </div>
                   @if (team.memberIds.length > 0) {
                     <div class="tc-members">
-                      @for (mid of team.memberIds; track mid) {
-                        <div class="tc-member">• {{ getPlayerName(mid) }}</div>
+                      @for (mid of team.memberIds; track mid; let i = $index) {
+                        <div class="tc-member"><span class="tc-idx">{{ i + 1 }}.</span> {{ getPlayerName(mid) }}</div>
                       }
                     </div>
                   }
@@ -436,7 +436,8 @@ import { ActiveAuction, AuctionTeamEntry, AuctionHistoryRecord } from '../../mod
     .tc-captain { display: block; font-size: 0.72rem; color: #94a3b8; }
     .tc-slots { font-size: 0.78rem; color: #64748b; flex-shrink: 0; }
     .tc-members { margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; }
-    .tc-member { font-size: 0.78rem; color: #94a3b8; padding: 2px 0; }
+    .tc-member { font-size: 0.78rem; color: #94a3b8; padding: 2px 0; display: flex; gap: 5px; align-items: baseline; }
+    .tc-idx { color: #475569; font-size: 0.7rem; min-width: 16px; flex-shrink: 0; }
 
     /* Modal */
     .modal-overlay {
