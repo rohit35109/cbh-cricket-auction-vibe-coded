@@ -1,8 +1,8 @@
 import {
-  Component, OnInit, Output, EventEmitter, signal, inject
+  Component, OnInit, Output, EventEmitter, signal, computed, inject
 } from '@angular/core';
 import { DbService } from '../../services/db.service';
-import { AuctionHistoryRecord } from '../../models/models';
+import { AuctionHistoryRecord, WeeklyMatchRecord } from '../../models/models';
 
 @Component({
   selector: 'app-history-modal',
@@ -25,7 +25,9 @@ import { AuctionHistoryRecord } from '../../models/models';
             </div>
           } @else {
             @for (rec of records(); track rec.id) {
-              <div class="record-card" [class.expanded]="expandedId() === rec.id" (click)="toggleExpand(rec.id!)">
+              <div class="record-card" [class.expanded]="expandedId() === rec.id"
+                (click)="toggleExpand(rec.id!)">
+
                 <div class="record-header">
                   <div class="record-meta">
                     <span class="record-date">{{ formatDate(rec.createdAt) }}</span>
@@ -38,12 +40,18 @@ import { AuctionHistoryRecord } from '../../models/models';
                     @if (rec.unsoldPlayerNames.length > 0) {
                       <span class="stat-pill unsold">{{ rec.unsoldPlayerNames.length }} Unsold</span>
                     }
+                    @if (weeklyCountFor(rec.id!) > 0) {
+                      <span class="stat-pill weekly">⚡ {{ weeklyCountFor(rec.id!) }} Weekly Match{{ weeklyCountFor(rec.id!) > 1 ? 'es' : '' }}</span>
+                    }
                   </div>
                   <span class="expand-icon">{{ expandedId() === rec.id ? '▲' : '▼' }}</span>
                 </div>
 
                 @if (expandedId() === rec.id) {
                   <div class="record-detail" (click)="$event.stopPropagation()">
+
+                    <!-- Main auction teams -->
+                    <div class="section-label">Main Auction Teams</div>
                     <div class="teams-grid">
                       @for (ts of rec.teamSummaries; track ts.teamId) {
                         <div class="team-summary" [class.full]="ts.isFull">
@@ -79,6 +87,52 @@ import { AuctionHistoryRecord } from '../../models/models';
                         </div>
                       </div>
                     }
+
+                    <!-- Weekly matches for this auction -->
+                    @if (weeklyCountFor(rec.id!) > 0) {
+                      <div class="weekly-section">
+                        <div class="section-label weekly-label">⚡ Weekly Matches</div>
+                        @for (wm of weeklyMatchesFor(rec.id!); track wm.id) {
+                          <div class="weekly-match-card">
+                            <div class="wm-header">
+                              <span class="wm-date">{{ formatDate(wm.completedAt) }}</span>
+                              <span class="wm-toss">🪙 Toss: {{ wm.tossWinnerName }}</span>
+                              @if (wm.swapsMade > 0) {
+                                <span class="wm-swaps">🔄 {{ wm.swapsMade }} swap{{ wm.swapsMade > 1 ? 's' : '' }}</span>
+                              }
+                            </div>
+                            <div class="wm-teams">
+                              <div class="wm-team">
+                                <div class="wm-team-name">{{ wm.team1.teamName }}</div>
+                                <div class="wm-captain">👑 {{ wm.team1.captainName }}</div>
+                                <div class="wm-players">
+                                  @for (p of wm.team1.playerNames; track $index) {
+                                    <span class="wm-player">{{ p }}</span>
+                                  }
+                                  @if (wm.team1.playerNames.length === 0) {
+                                    <span class="wm-no-players">No picks</span>
+                                  }
+                                </div>
+                              </div>
+                              <div class="wm-vs">VS</div>
+                              <div class="wm-team">
+                                <div class="wm-team-name">{{ wm.team2.teamName }}</div>
+                                <div class="wm-captain">👑 {{ wm.team2.captainName }}</div>
+                                <div class="wm-players">
+                                  @for (p of wm.team2.playerNames; track $index) {
+                                    <span class="wm-player">{{ p }}</span>
+                                  }
+                                  @if (wm.team2.playerNames.length === 0) {
+                                    <span class="wm-no-players">No picks</span>
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+
                   </div>
                 }
               </div>
@@ -97,7 +151,7 @@ import { AuctionHistoryRecord } from '../../models/models';
     }
     .modal-box {
       background: #1e293b; border: 1px solid #334155; border-radius: 16px;
-      width: 90vw; max-width: 860px; max-height: 88vh;
+      width: 90vw; max-width: 900px; max-height: 88vh;
       display: flex; flex-direction: column; overflow: hidden;
     }
     .modal-header {
@@ -119,6 +173,8 @@ import { AuctionHistoryRecord } from '../../models/models';
     }
     .empty-icon { font-size: 3rem; }
     .empty p { margin: 0; font-size: 0.9rem; }
+
+    /* Main auction record card */
     .record-card {
       background: #0f172a; border: 1px solid #334155; border-radius: 10px;
       margin-bottom: 10px; overflow: hidden; cursor: pointer;
@@ -139,13 +195,19 @@ import { AuctionHistoryRecord } from '../../models/models';
       background: #334155; color: #94a3b8; white-space: nowrap;
     }
     .stat-pill.unsold { background: rgba(239,68,68,0.15); color: #f87171; }
+    .stat-pill.weekly { background: rgba(167,139,250,0.15); color: #a78bfa; }
     .expand-icon { color: #475569; font-size: 0.8rem; flex-shrink: 0; }
-    .record-detail {
-      padding: 0 16px 16px; border-top: 1px solid #334155;
+
+    /* Expanded detail */
+    .record-detail { padding: 0 16px 16px; border-top: 1px solid #334155; }
+    .section-label {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #475569; margin: 16px 0 10px;
     }
+    .weekly-label { color: #a78bfa; }
     .teams-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px; margin-top: 14px;
+      gap: 10px;
     }
     .team-summary {
       background: #1e293b; border: 1px solid #334155; border-radius: 8px;
@@ -168,6 +230,32 @@ import { AuctionHistoryRecord } from '../../models/models';
       border: 1px solid rgba(239,68,68,0.3); border-radius: 99px;
       color: #f87171; font-size: 0.78rem;
     }
+
+    /* Weekly matches section */
+    .weekly-section { margin-top: 4px; }
+    .weekly-match-card {
+      background: #0d1526; border: 1px solid rgba(167,139,250,0.3);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+    }
+    .wm-header {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .wm-date { font-size: 0.82rem; color: #64748b; }
+    .wm-toss { font-size: 0.8rem; color: #f59e0b; font-weight: 600; }
+    .wm-swaps { font-size: 0.78rem; color: #a78bfa; }
+    .wm-teams { display: flex; align-items: flex-start; gap: 12px; }
+    .wm-team { flex: 1; background: #1e293b; border-radius: 8px; padding: 10px 12px; }
+    .wm-vs {
+      font-size: 0.85rem; font-weight: 800; color: #475569;
+      padding-top: 10px; flex-shrink: 0;
+    }
+    .wm-team-name { font-size: 0.9rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px; }
+    .wm-captain { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; }
+    .wm-players { display: flex; flex-direction: column; gap: 3px; }
+    .wm-player { font-size: 0.78rem; color: #cbd5e1; }
+    .wm-player::before { content: '• '; color: #475569; }
+    .wm-no-players { font-size: 0.75rem; color: #475569; font-style: italic; }
   `]
 })
 export class HistoryModalComponent implements OnInit {
@@ -175,13 +263,37 @@ export class HistoryModalComponent implements OnInit {
 
   private db = inject(DbService);
   records = signal<AuctionHistoryRecord[]>([]);
+  weeklyRecords = signal<WeeklyMatchRecord[]>([]);
   loading = signal(true);
   expandedId = signal<number | null>(null);
 
+  // Pre-grouped map: parentHistoryId → WeeklyMatchRecord[]
+  private weeklyByParent = computed(() => {
+    const map = new Map<number, WeeklyMatchRecord[]>();
+    for (const w of this.weeklyRecords()) {
+      const list = map.get(w.parentHistoryId) ?? [];
+      list.push(w);
+      map.set(w.parentHistoryId, list);
+    }
+    return map;
+  });
+
   async ngOnInit() {
-    const history = await this.db.getAuctionHistory();
+    const [history, weekly] = await Promise.all([
+      this.db.getAuctionHistory(),
+      this.db.getWeeklyMatchHistory()
+    ]);
     this.records.set([...history].reverse()); // newest first
+    this.weeklyRecords.set([...weekly].reverse());
     this.loading.set(false);
+  }
+
+  weeklyMatchesFor(parentId: number): WeeklyMatchRecord[] {
+    return this.weeklyByParent().get(parentId) ?? [];
+  }
+
+  weeklyCountFor(parentId: number): number {
+    return this.weeklyMatchesFor(parentId).length;
   }
 
   toggleExpand(id: number) {

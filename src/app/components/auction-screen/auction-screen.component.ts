@@ -703,12 +703,15 @@ export class AuctionScreenComponent implements OnDestroy {
       teamSummaries: a.teams.map(team => ({
         teamId: team.teamId,
         teamName: team.teamName,
+        captainId: team.captainId,
         captainName: team.captainName,
+        memberIds: team.memberIds,
         memberNames: team.memberIds.map(mid => a.playerSnapshot[mid]?.name || `#${mid}`),
         isFull: team.memberIds.length >= a.coreMembersCount - 1
       })),
       unsoldPlayerNames: unsoldIds.map(pid => a.playerSnapshot[pid]?.name || `#${pid}`),
-      totalPlayers: Object.keys(a.playerSnapshot).length
+      totalPlayers: Object.keys(a.playerSnapshot).length,
+      playerSnapshot: a.playerSnapshot
     };
 
     await this.db.saveAuctionHistory(record);
