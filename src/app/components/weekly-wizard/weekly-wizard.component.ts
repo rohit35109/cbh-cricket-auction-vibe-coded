@@ -7,6 +7,14 @@ import {
   AuctionHistoryRecord, ActiveWeeklyAuction, WeeklyPlayer, WeeklyTeamState
 } from '../../models/models';
 
+type CoreMember = { id: number; name: string; isCaptain: boolean; available: boolean };
+type TeamAvailability = {
+  teamId: number;
+  teamName: string;
+  tempCaptainId: number | null;
+  members: CoreMember[];
+};
+
 @Component({
   selector: 'app-weekly-wizard',
   standalone: true,
@@ -99,40 +107,59 @@ import {
         @if (step() === 3) {
           <div class="ww-body">
             <h2 class="step-heading">Core member availability</h2>
-            <p class="step-sub">Mark which core members are available. Unavailable members can have an optional replacement name.</p>
+            <p class="step-sub">Mark who can play this week. Unavailable members sit out — their slots open up for extra pool picks. If the captain is absent, assign a temp captain from available core members.</p>
             @for (teamAvail of coreAvailability(); track teamAvail.teamId) {
               <div class="avail-team-section">
                 <div class="avail-team-header">
                   <span class="avail-team-name">{{ teamAvail.teamName }}</span>
                 </div>
-                @for (member of teamAvail.members; track member.id) {
-                  <div class="avail-row" [class.captain-row]="member.isCaptain">
-                    <div class="avail-info">
-                      <span class="avail-name">{{ member.name }}</span>
-                      @if (member.isCaptain) { <span class="captain-badge">👑 Captain</span> }
-                    </div>
-                    @if (member.isCaptain) {
-                      <!-- Captain always plays — no toggle -->
-                      <span class="always-plays-label">Always plays</span>
-                    } @else {
+                <!-- Members list (wrapped so temp-captain-row can attach below) -->
+                <div class="avail-members" [class.has-absent-cap]="isCaptainAbsent(teamAvail)">
+                  @for (member of teamAvail.members; track member.id) {
+                    <div class="avail-row"
+                      [class.captain-row]="member.isCaptain"
+                      [class.row-unavail]="!member.available">
+                      <div class="avail-info">
+                        <span class="avail-name">{{ member.name }}</span>
+                        @if (member.isCaptain) {
+                          <span class="captain-badge" [class.badge-absent]="!member.available">
+                            {{ member.available ? '👑 Captain' : '👑 Captain – Absent' }}
+                          </span>
+                        }
+                      </div>
                       <div class="avail-toggle">
                         <button class="toggle-btn" [class.avail]="member.available"
-                          (click)="member.available = true; member.tempName = ''">
+                          (click)="setMemberAvailability(teamAvail, member, true)">
                           Available
                         </button>
                         <button class="toggle-btn" [class.unavail]="!member.available"
-                          (click)="member.available = false">
+                          (click)="setMemberAvailability(teamAvail, member, false)">
                           Unavailable
                         </button>
                       </div>
-                    }
-                  </div>
-                  @if (!member.isCaptain && !member.available) {
-                    <div class="core-temp-row">
-                      <input class="temp-input" [(ngModel)]="member.tempName"
-                        placeholder="Replacement player name (optional)" />
                     </div>
                   }
+                </div>
+                <!-- Temp captain selector — shown when captain is absent -->
+                @if (isCaptainAbsent(teamAvail)) {
+                  <div class="temp-captain-row">
+                    <div class="tc-label">⚠ Captain absent — select a temp captain for this match:</div>
+                    @if (getAvailableCoreMembers(teamAvail).length === 0) {
+                      <div class="tc-no-options">No available core members. Mark at least one member as available to assign a temp captain.</div>
+                    } @else {
+                      <div class="tc-options">
+                        @for (cm of getAvailableCoreMembers(teamAvail); track cm.id) {
+                          <button class="tc-option" [class.tc-selected]="teamAvail.tempCaptainId === cm.id"
+                            (click)="setTempCaptain(teamAvail, cm.id)">
+                            {{ cm.name }}
+                            @if (teamAvail.tempCaptainId === cm.id) {
+                              <span class="tc-check">✓</span>
+                            }
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
                 }
               </div>
             }
@@ -143,7 +170,7 @@ import {
         @if (step() === 4) {
           <div class="ww-body">
             <h2 class="step-heading">Other player availability</h2>
-            <p class="step-sub">Players not in either selected team. Mark availability and add temp replacements.</p>
+            <p class="step-sub">Players not in either selected team. Mark availability and add temp replacements if needed.</p>
             @for (p of otherPlayers(); track p.id) {
               <div class="other-row">
                 <div class="other-info">
@@ -250,7 +277,7 @@ import {
     /* Body */
     .ww-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
     .step-heading { font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin: 0 0 14px; }
-    .step-sub { font-size: 0.85rem; color: #64748b; margin: -8px 0 16px; }
+    .step-sub { font-size: 0.85rem; color: #64748b; margin: -8px 0 16px; line-height: 1.5; }
     .ww-loading, .ww-empty { color: #64748b; font-size: 0.9rem; padding: 24px 0; text-align: center; }
 
     /* Step 1 - history list */
@@ -298,30 +325,62 @@ import {
     .sel-hint { margin: 14px 0 0; font-size: 0.83rem; color: #64748b; text-align: center; }
 
     /* Step 3 - core availability */
-    .avail-team-section { margin-bottom: 22px; }
+    .avail-team-section { margin-bottom: 20px; }
     .avail-team-header {
-      padding: 8px 12px; background: #1e293b; border-radius: 8px; margin-bottom: 10px;
+      padding: 8px 12px; background: #1e293b; border-radius: 8px; margin-bottom: 8px;
     }
     .avail-team-name { font-size: 0.95rem; font-weight: 700; color: #f8fafc; }
+
+    /* Members container — rounds bottom only when no temp-captain-row follows */
+    .avail-members {
+      border: 1px solid #334155; border-radius: 8px; overflow: hidden; margin-bottom: 6px;
+    }
+    .avail-members.has-absent-cap {
+      border-radius: 8px 8px 0 0; margin-bottom: 0;
+      border-bottom-color: transparent;
+    }
     .avail-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 12px; border-radius: 8px; margin-bottom: 0;
-      background: #0f172a; border: 1px solid #334155; border-bottom: none;
+      padding: 10px 12px; background: #0f172a; border-bottom: 1px solid #1e293b;
     }
-    .avail-row:last-of-type { border-bottom: 1px solid #334155; margin-bottom: 6px; border-radius: 0 0 8px 8px; }
-    .avail-row:first-of-type { border-radius: 8px 8px 0 0; }
-    .avail-row:only-of-type { border-bottom: 1px solid #334155; border-radius: 8px; margin-bottom: 6px; }
-    .avail-row.captain-row { border-color: #f59e0b44; background: rgba(245,158,11,0.03); }
+    .avail-row:last-child { border-bottom: none; }
+    .avail-row.captain-row { background: rgba(245,158,11,0.03); }
+    .avail-row.captain-row.row-unavail {
+      background: rgba(239,68,68,0.05);
+    }
+    .avail-row.row-unavail .avail-name { color: #64748b; }
     .avail-info { display: flex; align-items: center; gap: 10px; flex: 1; }
     .avail-name { font-size: 0.88rem; color: #e2e8f0; font-weight: 500; }
-    .captain-badge { font-size: 0.72rem; background: rgba(245,158,11,0.15); color: #f59e0b; padding: 2px 8px; border-radius: 99px; }
-    .always-plays-label { font-size: 0.72rem; color: #475569; font-style: italic; }
-    .avail-toggle { display: flex; gap: 6px; }
-    .core-temp-row {
-      padding: 0 12px 8px; background: #0f172a;
-      border: 1px solid #334155; border-top: none; border-radius: 0 0 8px 8px;
-      margin-bottom: 6px;
+    .captain-badge {
+      font-size: 0.72rem; background: rgba(245,158,11,0.15); color: #f59e0b;
+      padding: 2px 8px; border-radius: 99px;
     }
+    .captain-badge.badge-absent {
+      background: rgba(239,68,68,0.15); color: #f87171;
+    }
+    .avail-toggle { display: flex; gap: 6px; }
+
+    /* Temp captain selector */
+    .temp-captain-row {
+      border: 1px solid #334155; border-top: 1px solid rgba(239,68,68,0.25);
+      border-radius: 0 0 8px 8px; background: rgba(239,68,68,0.05);
+      padding: 12px 14px; margin-bottom: 6px;
+    }
+    .tc-label {
+      font-size: 0.78rem; font-weight: 600; color: #f87171; margin-bottom: 10px;
+    }
+    .tc-options { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tc-option {
+      padding: 6px 14px; border-radius: 8px; border: 1px solid #334155;
+      background: #1e293b; color: #cbd5e1; font-size: 0.82rem;
+      cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+    }
+    .tc-option:hover { border-color: #a78bfa; color: #a78bfa; }
+    .tc-option.tc-selected {
+      border-color: #a78bfa; background: rgba(167,139,250,0.15); color: #a78bfa; font-weight: 600;
+    }
+    .tc-check { color: #a78bfa; font-size: 0.75rem; font-weight: 700; }
+    .tc-no-options { font-size: 0.78rem; color: #64748b; font-style: italic; }
 
     /* Step 4 - other players */
     .other-row {
@@ -416,21 +475,16 @@ export class WeeklyWizardComponent implements OnInit {
     { n: 4, label: 'Other Players' },
   ];
 
-  // Step 3 data — mutable array of { teamId, teamName, members[] }
-  coreAvailability = signal<Array<{
-    teamId: number;
-    teamName: string;
-    members: Array<{ id: number; name: string; isCaptain: boolean; available: boolean; tempName: string }>;
-  }>>([]);
+  // Step 3 — mutable array; signal updated via .update() to trigger reactivity
+  coreAvailability = signal<TeamAvailability[]>([]);
 
-  /** Running total of players who will participate this week (updates live in steps 3 & 4) */
+  /** Live count of players participating this week */
   weeklyTotal = computed(() => {
-    let total = 2; // 2 captains always play
+    let total = 0;
     for (const teamAvail of this.coreAvailability()) {
       for (const m of teamAvail.members) {
-        if (m.isCaptain) continue;
         if (m.available) total++;
-        else if (m.tempName?.trim()) total++; // replacement counts
+        // temp captain is already an available member — don't double-count
       }
     }
     for (const op of this.otherPlayers()) {
@@ -452,7 +506,7 @@ export class WeeklyWizardComponent implements OnInit {
   async ngOnInit() {
     this.loading.set(true);
     const hist = await this.db.getAuctionHistory();
-    this.history.set([...hist].reverse()); // newest first
+    this.history.set([...hist].reverse());
     this.loading.set(false);
   }
 
@@ -460,12 +514,19 @@ export class WeeklyWizardComponent implements OnInit {
     const s = this.step();
     if (s === 1) return this.selectedHistoryId() !== null;
     if (s === 2) return this.selectedTeamIds().length === 2;
-    if (s === 3) return true;
+    if (s === 3) {
+      for (const teamAvail of this.coreAvailability()) {
+        if (this.isCaptainAbsent(teamAvail) && teamAvail.tempCaptainId === null) return false;
+      }
+      return true;
+    }
     return false;
   });
 
   isNewFormat(rec: AuctionHistoryRecord): boolean {
-    return !!rec.playerSnapshot && rec.teamSummaries.every(ts => ts.captainId != null && Array.isArray(ts.memberIds));
+    return !!rec.playerSnapshot && rec.teamSummaries.every(
+      ts => ts.captainId != null && Array.isArray(ts.memberIds)
+    );
   }
 
   selectHistory(rec: AuctionHistoryRecord) {
@@ -491,17 +552,31 @@ export class WeeklyWizardComponent implements OnInit {
     this.errorMsg.set('');
     const s = this.step();
 
-    // Validate that the selected history record has the new-format fields needed for weekly auction
     if (s === 2) {
       const rec = this.selectedHistory()!;
-      const hasNewFormat = rec.playerSnapshot && rec.teamSummaries.every(ts => ts.captainId != null && Array.isArray(ts.memberIds));
+      const hasNewFormat = rec.playerSnapshot &&
+        rec.teamSummaries.every(ts => ts.captainId != null && Array.isArray(ts.memberIds));
       if (!hasNewFormat) {
-        this.errorMsg.set('This auction record is too old — it was saved before weekly auction support was added. Please run a new main auction first, then use that record here.');
+        this.errorMsg.set(
+          'This auction record is too old — it was saved before weekly auction support was added. Please run a new main auction first.'
+        );
         return;
       }
       this.buildCoreAvailability();
     }
-    if (s === 3) { this.buildOtherPlayers(); }
+
+    if (s === 3) {
+      for (const teamAvail of this.coreAvailability()) {
+        if (this.isCaptainAbsent(teamAvail) && teamAvail.tempCaptainId === null) {
+          this.errorMsg.set(
+            `${teamAvail.teamName}: Captain is absent — please select a temp captain from the available core members.`
+          );
+          return;
+        }
+      }
+      this.buildOtherPlayers();
+    }
+
     this.step.set(s + 1);
   }
 
@@ -510,21 +585,48 @@ export class WeeklyWizardComponent implements OnInit {
     this.step.set(this.step() - 1);
   }
 
+  /** True when the team's captain is marked unavailable */
+  isCaptainAbsent(teamAvail: TeamAvailability): boolean {
+    const cap = teamAvail.members.find(m => m.isCaptain);
+    return !!cap && !cap.available;
+  }
+
+  /** Available non-captain core members (candidates for temp captain) */
+  getAvailableCoreMembers(teamAvail: TeamAvailability): CoreMember[] {
+    return teamAvail.members.filter(m => !m.isCaptain && m.available);
+  }
+
+  /** Toggle availability for any core member, including the captain */
+  setMemberAvailability(teamAvail: TeamAvailability, member: CoreMember, available: boolean) {
+    member.available = available;
+    // If captain becomes available again, clear any temp captain selection
+    if (member.isCaptain && available) {
+      teamAvail.tempCaptainId = null;
+    }
+    // Spread into new array so computed() / template re-evaluate
+    this.coreAvailability.update(v => [...v]);
+  }
+
+  /** Assign temp captain for the week when original captain is absent */
+  setTempCaptain(teamAvail: TeamAvailability, memberId: number) {
+    teamAvail.tempCaptainId = memberId;
+    this.coreAvailability.update(v => [...v]);
+  }
+
   private buildCoreAvailability() {
     const rec = this.selectedHistory()!;
     const teamIds = this.selectedTeamIds();
-    const avail = teamIds.map(tid => {
+    const avail: TeamAvailability[] = teamIds.map(tid => {
       const ts = rec.teamSummaries.find(t => t.teamId === tid)!;
       const snapshot = rec.playerSnapshot ?? {};
-      const members: Array<{ id: number; name: string; isCaptain: boolean; available: boolean; tempName: string }> = [];
-      // Captain first (always available, no toggle)
-      members.push({ id: ts.captainId ?? 0, name: ts.captainName, isCaptain: true, available: true, tempName: '' });
-      // Other core members
+      const members: CoreMember[] = [];
+      // Captain first — can now also be toggled unavailable
+      members.push({ id: ts.captainId ?? 0, name: ts.captainName, isCaptain: true, available: true });
       for (const mid of ts.memberIds ?? []) {
         const name = snapshot[mid]?.name || `Player #${mid}`;
-        members.push({ id: mid, name, isCaptain: false, available: true, tempName: '' });
+        members.push({ id: mid, name, isCaptain: false, available: true });
       }
-      return { teamId: tid, teamName: ts.teamName, members };
+      return { teamId: tid, teamName: ts.teamName, tempCaptainId: null, members };
     });
     this.coreAvailability.set(avail);
   }
@@ -534,7 +636,6 @@ export class WeeklyWizardComponent implements OnInit {
     const teamIds = this.selectedTeamIds();
     const snapshot = rec.playerSnapshot ?? {};
 
-    // Collect all core member IDs from both teams
     const coreIds = new Set<number>();
     for (const tid of teamIds) {
       const ts = rec.teamSummaries.find(t => t.teamId === tid)!;
@@ -566,23 +667,22 @@ export class WeeklyWizardComponent implements OnInit {
 
       const playerIndex: { [id: string]: WeeklyPlayer } = {};
 
-      // Build team states
       const buildTeamState = (tid: number): WeeklyTeamState => {
         const ts = rec.teamSummaries.find(t => t.teamId === tid)!;
         const avail = coreAvail.find(a => a.teamId === tid)!;
+
+        const captainMember = avail.members.find(m => m.isCaptain)!;
+        const captainAbsent = !captainMember.available;
+        const tempCaptainId = avail.tempCaptainId;
 
         const availableCoreIds: string[] = [];
         const unavailableCoreIds: string[] = [];
 
         for (const m of avail.members) {
-          if (m.isCaptain) continue; // captain always plays
           const pid = `p_${m.id}`;
-          if (m.available) {
-            availableCoreIds.push(pid);
-          } else {
-            unavailableCoreIds.push(pid);
-          }
           const snap = rec.playerSnapshot?.[m.id];
+
+          // Always register in player index for lookup
           playerIndex[pid] = {
             id: pid,
             name: m.name,
@@ -591,23 +691,51 @@ export class WeeklyWizardComponent implements OnInit {
             isTemp: false,
             originalPlayerId: m.id
           };
+
+          if (m.isCaptain) {
+            // Captain plays separately (not in pickedIds); track if absent
+            if (!m.available) unavailableCoreIds.push(pid);
+            continue;
+          }
+
+          // Non-captain core members
+          if (m.available) {
+            if (captainAbsent && tempCaptainId === m.id) {
+              // This member acts as temp captain — plays as captain, not in pickedIds
+            } else {
+              availableCoreIds.push(pid);
+            }
+          } else {
+            unavailableCoreIds.push(pid);
+          }
+        }
+
+        // Resolve which player is captain this week
+        let resolvedCaptainId = ts.captainId ?? 0;
+        let resolvedCaptainName = ts.captainName;
+        if (captainAbsent && tempCaptainId !== null) {
+          const tempCapMember = avail.members.find(m => m.id === tempCaptainId);
+          if (tempCapMember) {
+            resolvedCaptainId = tempCaptainId;
+            resolvedCaptainName = tempCapMember.name;
+          }
         }
 
         return {
           teamId: tid,
           teamName: ts.teamName,
-          captainId: ts.captainId ?? 0,
-          captainName: ts.captainName,
+          captainId: resolvedCaptainId,
+          captainName: resolvedCaptainName,
           availableCoreIds,
           unavailableCoreIds,
-          pickedIds: [...availableCoreIds]   // core members start in the team automatically
+          pickedIds: [...availableCoreIds]  // core members start pre-placed
         };
       };
 
       const team1 = buildTeamState(teamIds[0]);
       const team2 = buildTeamState(teamIds[1]);
 
-      // Build pool from other available players + temp replacements
+      // Pool: available other players + named temp replacements for unavailable others
       const pool: string[] = [];
       let tempIdx = 0;
 
@@ -632,34 +760,19 @@ export class WeeklyWizardComponent implements OnInit {
         }
       }
 
-      // Core members are already in their teams — only other players (+ replacements) go in the pool
-
-      // Temp replacements for unavailable core members also enter the pool
-      for (const teamAvail of coreAvail) {
-        for (const m of teamAvail.members) {
-          if (m.isCaptain || m.available || !m.tempName.trim()) continue;
-          const tid = `temp_${tempIdx++}`;
-          pool.push(tid);
-          playerIndex[tid] = {
-            id: tid, name: m.tempName.trim(),
-            isTemp: true, originalPlayerId: m.id
-          };
-        }
-      }
-
-      // Validate total players is between 22 and 24
-      // Total = 2 captains + team1 core picks + team2 core picks + pool
+      // 2 captains (or temp captains) + both teams' picked cores + pool
       const totalInMatch = 2 + team1.pickedIds.length + team2.pickedIds.length + pool.length;
+
       if (totalInMatch > 24) {
         this.errorMsg.set(
-          `Total players (${totalInMatch}) exceeds the maximum of 24. Please mark more players as unavailable.`
+          `Total players (${totalInMatch}) exceeds the maximum of 24. Mark more players as unavailable.`
         );
         this.saving.set(false);
         return;
       }
       if (totalInMatch < 22) {
         this.errorMsg.set(
-          `Total players (${totalInMatch}) is below the minimum of 22. Mark more players as available or add ${22 - totalInMatch} more temp replacement(s).`
+          `Total players (${totalInMatch}) is below the minimum of 22. Add ${22 - totalInMatch} more available or temp player(s) in step 4.`
         );
         this.saving.set(false);
         return;
@@ -693,7 +806,9 @@ export class WeeklyWizardComponent implements OnInit {
 
   formatDate(iso: string): string {
     try {
-      return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      return new Date(iso).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
     } catch { return iso; }
   }
 }
