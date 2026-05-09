@@ -159,11 +159,11 @@
                   </div>
                   <div class="other-avail-toggle">
                     <button class="toggle-btn sm" [class.avail]="p.available"
-                      (click)="p.available = true; p.tempName = ''">
+                      (click)="setOtherPlayerAvailable(p, true)">
                       Available
                     </button>
                     <button class="toggle-btn sm" [class.unavail]="!p.available"
-                      (click)="p.available = false">
+                      (click)="setOtherPlayerAvailable(p, false)">
                       Unavailable
                     </button>
                   </div>
@@ -186,7 +186,7 @@
 
               @if (extraTempPlayers().length > 0) {
                 <div class="extra-temp-list">
-                  @for (tp of extraTempPlayers(); track $index; let i = $index) {
+                  @for (tp of extraTempPlayers(); track tp; let i = $index) {
                     <div class="extra-temp-item">
                       <span class="extra-temp-idx">{{ i + 1 }}.</span>
                       <span class="extra-temp-name">{{ tp }}</span>

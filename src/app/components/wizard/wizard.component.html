@@ -127,10 +127,30 @@
                     <span class="pl-col username">{{ p.cricherosUsername || '—' }}</span>
                     <span class="pl-col cid">{{ p.cricherosId || '—' }}</span>
                     <span class="pl-col captain">
-                      @if (p.isCaptain) { <span class="badge captain">C</span> }
+                      <label class="captain-check">
+                        <input
+                          type="checkbox"
+                          [checked]="p.isCaptain"
+                          (change)="toggleCaptainForExisting(p._tempId, ($any($event.target).checked))"
+                        />
+                        <span>Captain</span>
+                      </label>
                     </span>
                     <span class="pl-col team">
-                      @if (p.isCaptain && p._teamKey != null) { {{ getTeamNameByKey(p._teamKey) }} } @else { — }
+                      @if (p.isCaptain) {
+                        <select
+                          class="inp"
+                          [ngModel]="p._teamKey"
+                          (ngModelChange)="setCaptainTeamForExisting(p._tempId, $event)"
+                        >
+                          <option [ngValue]="undefined">-- Select Team --</option>
+                          @for (t of availableTeamsForCaptain(p._tempId); track t.tempKey) {
+                            <option [ngValue]="t.tempKey">{{ t.name }}</option>
+                          }
+                        </select>
+                      } @else {
+                        —
+                      }
                     </span>
                     <span class="pl-col active">
                       <label class="toggle">
@@ -148,6 +168,7 @@
                 }
               </div>
             </div>
+            @if (editPlayersError()) { <p class="error">{{ editPlayersError() }}</p> }
             @if (step3Error()) { <p class="error">{{ step3Error() }}</p> }
           </div>
         }

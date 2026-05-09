@@ -185,6 +185,12 @@ export class WeeklyWizardComponent implements OnInit {
     this.coreAvailability.update(v => [...v]);
   }
 
+  setOtherPlayerAvailable(p: { available: boolean; tempName: string }, available: boolean) {
+    p.available = available;
+    if (available) p.tempName = '';
+    this.otherPlayers.update(v => [...v]);
+  }
+
   /** Add a free-form temp player to this week's pool */
   addExtraTemp() {
     const name = this.newTempName.trim();

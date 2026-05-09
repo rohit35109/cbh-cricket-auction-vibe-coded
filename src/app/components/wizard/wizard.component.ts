@@ -45,18 +45,43 @@ export class WizardComponent implements OnInit {
   players = signal<(WizardPlayer & { _teamKey?: number })[]>([]);
   newPlayer: { name?: string; cricherosUsername?: string; cricherosId?: string; isCaptain?: boolean; teamKey?: number } = {};
   addPlayerError = signal('');
+  editPlayersError = signal('');
   step3Error = signal('');
 
   private existingTeams: Team[] = [];
   private nextTempId = 1;
 
-  availableTeamsForNewCaptain = computed(() => {
-    const usedKeys = new Set(
-      this.players().filter(p => p.isCaptain && p._teamKey != null).map(p => p._teamKey!)
+  private selectableTeams(): TeamInput[] {
+    return this.teamInputs().filter(t => t.name.trim());
+  }
+
+  private captainTeamKeys(exceptTempId?: number): Set<number> {
+    return new Set(
+      this.players()
+        .filter(p => p.isActive !== false)
+        .filter(p => p.isCaptain)
+        .filter(p => p._teamKey != null)
+        .filter(p => exceptTempId == null || p._tempId !== exceptTempId)
+        .map(p => p._teamKey!)
     );
-    return this.teamInputs()
-      .filter(t => t.name.trim())
-      .filter(t => !usedKeys.has(t.tempKey));
+  }
+
+  availableTeamsForCaptain(tempId: number): TeamInput[] {
+    const p = this.players().find(x => x._tempId === tempId);
+    if (!p) return [];
+
+    const usedByOthers = this.captainTeamKeys(tempId);
+    const currentKey = p._teamKey;
+
+    return this.selectableTeams().filter(t => {
+      if (currentKey != null && t.tempKey === currentKey) return true;
+      return !usedByOthers.has(t.tempKey);
+    });
+  }
+
+  availableTeamsForNewCaptain = computed(() => {
+    const usedKeys = this.captainTeamKeys();
+    return this.selectableTeams().filter(t => !usedKeys.has(t.tempKey));
   });
 
   async ngOnInit() {
@@ -138,6 +163,43 @@ export class WizardComponent implements OnInit {
 
   removePlayer(tempId: number) {
     this.players.update(list => list.filter(p => p._tempId !== tempId));
+  }
+
+  toggleCaptainForExisting(tempId: number, nextIsCaptain: boolean) {
+    this.editPlayersError.set('');
+    this.players.update(list =>
+      list.map(p => {
+        if (p._tempId !== tempId) return p;
+        if (!nextIsCaptain) {
+          return { ...p, isCaptain: false, _teamKey: undefined };
+        }
+        // Becoming captain: require team selection by user.
+        return { ...p, isCaptain: true, _teamKey: p._teamKey };
+      })
+    );
+  }
+
+  setCaptainTeamForExisting(tempId: number, nextTeamKey: number | undefined) {
+    this.editPlayersError.set('');
+    if (nextTeamKey == null) {
+      this.players.update(list =>
+        list.map(p => p._tempId === tempId ? { ...p, _teamKey: undefined } : p)
+      );
+      return;
+    }
+
+    const usedByOthers = this.captainTeamKeys(tempId);
+    if (usedByOthers.has(nextTeamKey)) {
+      this.editPlayersError.set('That team already has a captain. Choose a different team.');
+      this.players.update(list =>
+        list.map(p => p._tempId === tempId ? { ...p, _teamKey: undefined } : p)
+      );
+      return;
+    }
+
+    this.players.update(list =>
+      list.map(p => p._tempId === tempId ? { ...p, _teamKey: nextTeamKey } : p)
+    );
   }
 
   toggleActive(p: WizardPlayer) {
